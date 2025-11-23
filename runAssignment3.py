@@ -517,6 +517,114 @@ def BFGS(x, func, gradient):
     print("HIT MAX ITERATIONS IN BFGS")
     return recent_val, k
 
+# Runs DFP with Armijo backtracking line search 
+# Output: x
+def DFP(x, func, gradient): 
+    length = len(x)
+    H = np.identity(length)
+    prev_vector = x
+    cur_vector = x
+    k = 0 
+    I = np.identity(length)
+    alpha = START_ALPHA
+
+    stopping_point = 1e-8 * max(1, np.linalg.norm(gradient(x))) # gradient of OG vector 
+    
+    while (k < K_MAX): 
+        gradient_vector = gradient(cur_vector)
+        cur_gradient = np.linalg.norm(gradient(cur_vector))
+        recent_val = func(cur_vector)
+        print(f"Iteration: {k}, f(x): {recent_val}, ||gradf||: {cur_gradient}, alpha: {alpha}")
+
+        # stopping Condition, satisfiable convergence
+        if cur_gradient <= stopping_point: 
+            print("Final value of objective function: ", recent_val)
+            print("CONVERGED\n")
+            return func(cur_vector), k
+        
+    
+        p = -H @ gradient_vector
+        
+        # choose a steplength with Armijo backtracking linesearch
+        alpha = Armijo_backtracking(cur_vector, func, gradient, p, 1)
+
+        # update the iterate 
+        cur_vector = prev_vector + (alpha * p)
+
+        # define s & y 
+        s = cur_vector - prev_vector
+        y = gradient(cur_vector) - gradient(prev_vector) 
+
+        if np.dot(s, y) > (EMIN * np.linalg.norm(y) * np.linalg.norm(s)):
+            sy = np.dot(s, y)
+            Hy = H @ y
+            yHy = np.dot(y, Hy)
+
+            H = H + np.outer(s, s) / sy - np.outer(Hy, Hy) / yHy
+
+        # Set k <- k + 1
+        k += 1
+
+        prev_vector = cur_vector
+        
+    print("Final value of objective function: ", recent_val)
+    print("HIT MAX ITERATIONS IN DFP")
+    return recent_val, k
+
+# Runs DFP with Wolfe line search 
+# Output: x
+def DFPW(x, func, gradient): 
+    length = len(x)
+    H = np.identity(length)
+    prev_vector = x
+    cur_vector = x
+    k = 0 
+    I = np.identity(length)
+    alpha = START_ALPHA
+
+    stopping_point = 1e-8 * max(1, np.linalg.norm(gradient(x))) # gradient of OG vector 
+    
+    while (k < K_MAX): 
+        gradient_vector = gradient(cur_vector)
+        cur_gradient = np.linalg.norm(gradient(cur_vector))
+        recent_val = func(cur_vector)
+        print(f"Iteration: {k}, f(x): {recent_val}, ||gradf||: {cur_gradient}, alpha: {alpha}")
+
+        # stopping Condition, satisfiable convergence
+        if cur_gradient <= stopping_point: 
+            print("Final value of objective function: ", recent_val)
+            print("CONVERGED\n")
+            return func(cur_vector), k
+        
+    
+        p = -H @ gradient_vector
+        
+        # choose a steplength with wolfe's
+        alpha = Wolfe_linesearch(cur_vector, p, func, gradient)
+
+        # update the iterate 
+        cur_vector = prev_vector + (alpha * p)
+
+        # define s & y 
+        s = cur_vector - prev_vector
+        y = gradient(cur_vector) - gradient(prev_vector) 
+
+        if np.dot(s, y) > (EMIN * np.linalg.norm(y) * np.linalg.norm(s)):
+            sy = np.dot(s, y)
+            Hy = H @ y
+            yHy = np.dot(y, Hy)
+
+            H = H + np.outer(s, s) / sy - np.outer(Hy, Hy) / yHy
+
+        # Set k <- k + 1
+        k += 1
+
+        prev_vector = cur_vector
+        
+    print("Final value of objective function: ", recent_val)
+    print("HIT MAX ITERATIONS IN DFPW")
+    return recent_val, k
+
 
 # Input is gradient at f(x_k) and last y_k, s_k pairs, replaces H_k nabla f update 
 def two_loop_recursion(cur_gradient, y_s_pairs, gamma, I): 
