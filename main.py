@@ -4,7 +4,10 @@ import sys
 import time 
 import functions 
 import argparse
+import matlab.engine
+import numpy as np
 
+# Initialize constants 
 START_ALPHA = 1
 C1 = 0.0004
 C2 = 0.9
@@ -13,6 +16,9 @@ K_MAX = 6000
 BETA = 0.0004
 EMIN = 10e-8
 
+def to_mat(x):
+    x = np.asarray(x).reshape(-1, 1)
+    return matlab.double(x.tolist())
     
 # Armijo condition – find optimal steplength (alpha) selection
 def Armijo_backtracking(x, func, gradient, p, alpha_init): 
@@ -150,7 +156,7 @@ def newtons_method(x, func, gradient, hessian, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector)
+            return func(cur_vector), k 
     
 
         # Choose a descent direction p  
@@ -181,6 +187,8 @@ def newtons_method(x, func, gradient, hessian, armijo):
     
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN NEWTONS")
+
+    return recent_val, k
 
 
 # Runs the cholesky algorithm to find the optimal addition to the hessian matrix
@@ -237,7 +245,7 @@ def modified_newtons_method(x, func, gradient, hessian, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector)
+            return func(cur_vector), k
     
         # delta = 0
         # Choosing a descent direction p  
@@ -276,6 +284,7 @@ def modified_newtons_method(x, func, gradient, hessian, armijo):
     
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN MODIFIED NEWTONS")
+    return recent_val, k
 
 
 
@@ -624,42 +633,100 @@ def check_convergence(k):
         return "CONVERGED"
     
 
+def argument_parser(): 
+    print("You're about to run script to run problems for the NLP final project.")
 
+    problem_name = input("Input the problem you wish to run:")
+    x0 = input("Input the starting value you wish to use")
+    method_name = input("Input the method name you wish to use").tolower()()
+    
+    print(f"You're running {problem_name} with a starting value of {x0} using {method_name}.")
+    
+    # if method_name == "steepest_descent": 
+    #     func 
+
+    optimalty_tolerance = input("Input the optimality tolerance: ")
+    max_iterations = input("Input the max iterations: ")
+    c1 = input("Input the C1")
+    c2 = input("Input the C2")
+
+    if method_name == "newton_cg": 
+        newton_cg_tolerance = input("Input the newton cg tolerance:")
+    if method_name == "l_bfgs": 
+        lbfgs_memory_size = input("Input the problem you wish to run:")
+    
+    
 def main(): 
 
-    parser = argparse.ArgumentParser(description="A script to run problems for the NLP final project.")
+    # argument_parser() 
+    # MATLAB engine setup 
+    eng = matlab.engine.start_matlab()
+    eng.addpath(eng.genpath('/home/parul/nlp/nabla_ninjas/nlp_finalproject/Project_Problems_MATLAB/Project_Problems_MATLAB'), nargout=0)
 
-    parser.add_argument("--problem_name", type=str, help="The problem you wish to run.")
-    parser.add_argument("--problem_string", type=str, help="The problem you wish to run.")
-    # one_v = [-1.2, 1]
-    # two_v = [-1] * 10
-    # three_v = [2] * 10
-    # four_v = [-1] * 100
-    # five_v = [2] * 100
-    # six_v = [2] * 1000
-    # seven_v = [2] * 10000
-    # eight_v = [1, 1]
-    # nine_v = [0, 0]
-    # ten_v = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    print
 
-    # vectors = [one_v, two_v, three_v, four_v, five_v, six_v, seven_v, eight_v, nine_v, ten_v]
+    problems = [
+        {
+            "name": "P1_quad_10_10",
+            "n": 10,
+            "x0": np.random.rand(10,1),
+            "func": lambda x: float(eng.quad_10_10_func(to_mat(x))),
+            "grad": lambda x: np.array(eng.quad_10_10_grad(to_mat(x))).flatten(),
+            "hess": lambda x: np.array(eng.quad_10_10_Hess(to_mat(x))),
+        },
+    ]
 
-    # steepest_descent(one_v, functions.Rosenbrock_function, functions.Rosenbrock_gradient, False)
+    methods = [
+        ("SD_armijo", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=True)),
+        ("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)),
+        ("Newton_armijo", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        ("Modified_Newtons_armijo", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        ("BFGS_armijo", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=True)),
+        ("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)),
+        ("DFP_armijo", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=True)), 
+        ("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), 
+        ("L_BFGS_armijo", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=True)), 
+        ("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
+        ("Newton_CG_armijo", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+    ]
     
+    results = []
+    row = 1
 
+    for i, problem in enumerate(problems, 1):
+        x0 = problem["x0"]
+        n = len(x0)
+        n = problem["n"]
+        for method_name, method_func in methods:
+            print(method_name)
+            start_time = time.time()
+            result = method_func(problem)
+            elapsed_time = time.time() - start_time
+            f_final, iters = result 
 
+            results.append({
+                "Problem": f"P{i} ({problem['name']})",
+                "Method": method_name,
+                "f_final" : f_final,
+                "Iterations": iters, 
+                "Time": elapsed_time,
+            })
+
+            row += 1
+
+    # Make table 
+    print("SUMMARY TABLE")
+    with open("outputTableTest.txt", "w") as f:
+        f.write("Problem\tMethod\tFinal f\tIteration\tTime (s)\n")
+        for res in results:
+            f.write(f"{res['Problem']}\t{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\t{res['Reason']}\n")
+
+    print("\nTable saved to outputTableTest.txt")
+    eng.quit() 
+  
 
 if __name__ == "__main__":
-    main() 
-
-    
-
-
-
-
-
-
-
-
-
-
+    main()
