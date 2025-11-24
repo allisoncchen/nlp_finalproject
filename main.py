@@ -4,22 +4,20 @@ import sys
 import time 
 import functions 
 import argparse
-import matlab.engine
+import matlab.engine # using matlab engine api in python 
 import numpy as np
+import problems as pr
 
 # Initialize constants 
 START_ALPHA = 1
 C1 = 0.0004
 C2 = 0.9
 TAO = 0.5
-K_MAX = 6000
+K_MAX = 3000
 BETA = 0.0004
 EMIN = 10e-8
 
-def to_mat(x):
-    x = np.asarray(x).reshape(-1, 1)
-    return matlab.double(x.tolist())
-    
+
 # Armijo condition – find optimal steplength (alpha) selection
 def Armijo_backtracking(x, func, gradient, p, alpha_init): 
     i = 0 
@@ -98,7 +96,7 @@ def steepest_descent(x, func, gradient, armijo):
         if norm_cur_gradient_vector <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector)
+            return func(cur_vector), k
         
         # for every iteration after the initial, recalculate alpha 
         if k > 0: 
@@ -130,6 +128,7 @@ def steepest_descent(x, func, gradient, armijo):
     
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN STEEPEST DESCENT")
+    return recent_val, k
 
 
 
@@ -574,14 +573,14 @@ def Newton_CG(x, func, gradient_func, hessian, armijo):
         r = gradient_func(cur_vector)
         d = -r
 
-        gradient = np.linalg.norm(gradient_func(cur_vector))
+        cur_gradient = np.linalg.norm(gradient_func(cur_vector))
         func_val = func(cur_vector)
         p = 0.0
-        stopping_point = 1e-8 * max(1, np.linalg.norm(gradient))
+        stopping_point = 1e-8 * max(1, np.linalg.norm(cur_gradient))
     
-        print(f"Iteration: {k}, f(x): {func_val}, ||gradf||: {gradient}, alpha: {alpha_k}")
+        print(f"Iteration: {k}, f(x): {func_val}, ||gradf||: {cur_gradient}, alpha: {alpha_k}")
     
-        if gradient <= stopping_point: 
+        if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", func_val)
             print("CONVERGED\n")
             return func(cur_vector), k
@@ -612,7 +611,7 @@ def Newton_CG(x, func, gradient_func, hessian, armijo):
         
 
         if armijo: 
-            alpha_k = Armijo_backtracking(cur_vector, func, gradient, p, 1)
+            alpha_k = Armijo_backtracking(cur_vector, func, gradient_func, p, 1)
         else: 
             alpha_k = Wolfe_linesearch(cur_vector, p, func, gradient_func)
 
@@ -659,20 +658,103 @@ def argument_parser():
 def main(): 
 
     # argument_parser() 
-    # MATLAB engine setup 
-    eng = matlab.engine.start_matlab()
-    eng.addpath(eng.genpath('/home/parul/nlp/nabla_ninjas/nlp_finalproject/Project_Problems_MATLAB/Project_Problems_MATLAB'), nargout=0)
-
-    print
 
     problems = [
         {
             "name": "P1_quad_10_10",
             "n": 10,
-            "x0": np.random.rand(10,1),
-            "func": lambda x: float(eng.quad_10_10_func(to_mat(x))),
-            "grad": lambda x: np.array(eng.quad_10_10_grad(to_mat(x))).flatten(),
-            "hess": lambda x: np.array(eng.quad_10_10_Hess(to_mat(x))),
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_10_func,
+            "grad": pr.quad_10_10_grad,
+            "hess": pr.quad_10_10_Hess,
+        },
+        {
+            "name": "P2_quad_10_1000",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_1000_func,
+            "grad": pr.quad_10_1000_grad,
+            "hess": pr.quad_10_1000_Hess,
+        },
+        {
+            "name": "P3_quad_1000_10",
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_10_func,
+            "grad": pr.quad_1000_10_grad,
+            "hess": pr.quad_1000_10_Hess,
+        },
+        {
+            "name": "P4_quad_1000_1000",
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_1000_func,
+            "grad": pr.quad_1000_1000_grad,
+            "hess": pr.quad_1000_1000_Hess,
+        },
+        {
+            "name": "P5_quartic_1",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_1_func,
+            "grad": pr.quartic_1_grad,
+            "hess": pr.quartic_1_Hess,
+        },
+        {
+            "name": "P6_quartic_2",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_2_func,
+            "grad": pr.quartic_2_grad,
+            "hess": pr.quartic_2_Hess,
+        },
+        {
+            "name": "P7_Extended_Rosenbrock_n2",
+            "n": 2,
+            "x0": np.array([-1.2, 1.0]),
+            "func": pr.ExtRF,
+            "grad": pr.grad_ExtRF,
+            "hess": pr.hess_ExtRF,
+        },
+        {
+            "name": "P8_Extended_Rosenbrock_n100",
+            "n": 100,
+            "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+            "func": pr.ExtRF_100,
+            "grad": pr.grad_ExtRF_100,
+            "hess": pr.hess_ExtRF_100,
+        },
+        {
+            "name": "P9_Beale",
+            "n": 2,
+            "x0": np.array([1.0, 1.0]),
+            "func": pr.Beale_function,
+            "grad": pr.Beale_gradient,
+            "hess": pr.Beale_hessian,
+        },
+        {
+            "name": "P10_exponential_10",
+            "n": 10,
+            "x0": np.concatenate(([1.0], np.zeros(9))),
+            "func": pr.exponential_10_func,
+            "grad": pr.exponential_10_grad,
+            "hess": pr.exponential_10_Hess,
+        },
+        {
+            "name": "P11_exponential_1000",
+            "n": 1000,
+            "x0": np.concatenate(([1.0], np.zeros(999))),
+            "func": pr.exponential_1000_func,
+            "grad": pr.exponential_1000_grad,
+            "hess": pr.exponential_1000_Hess,
+        },
+        {
+            "name": "P12_genhumps_5",
+            "n": 5,
+            "x0": np.full(5, -506.2),
+            "func": pr.genhumps_5_func,
+            "grad": pr.genhumps_5_grad,
+            "hess": pr.genhumps_5_Hess,
         },
     ]
 
@@ -694,18 +776,17 @@ def main():
     ]
     
     results = []
-    row = 1
 
     for i, problem in enumerate(problems, 1):
+        print(f"PROBLEM NUMBER: {i}")
         x0 = problem["x0"]
         n = len(x0)
         n = problem["n"]
         for method_name, method_func in methods:
             print(method_name)
             start_time = time.time()
-            result = method_func(problem)
+            f_final, iters = method_func(problem)
             elapsed_time = time.time() - start_time
-            f_final, iters = result 
 
             results.append({
                 "Problem": f"P{i} ({problem['name']})",
@@ -715,18 +796,14 @@ def main():
                 "Time": elapsed_time,
             })
 
-            row += 1
-
-    # Make table 
+     # Make table 
     print("SUMMARY TABLE")
     with open("outputTableTest.txt", "w") as f:
         f.write("Problem\tMethod\tFinal f\tIteration\tTime (s)\n")
         for res in results:
-            f.write(f"{res['Problem']}\t{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\t{res['Reason']}\n")
+            f.write(f"{res['Problem']}\t{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\n")
 
     print("\nTable saved to outputTableTest.txt")
-    eng.quit() 
-  
 
 if __name__ == "__main__":
     main()
