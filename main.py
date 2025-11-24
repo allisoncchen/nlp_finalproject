@@ -2,9 +2,8 @@ import math
 import numpy as np 
 import sys
 import time 
-from fpdf import FPDF
 import functions 
-
+import argparse
 
 START_ALPHA = 1
 C1 = 0.0004
@@ -108,7 +107,7 @@ def steepest_descent(x, func, gradient, armijo):
         if armijo == True: 
             alpha = Armijo_backtracking(cur_vector, func, gradient, p, alpha)
         else: 
-            alpha = Wolfe_linesearch(cur_vector, func, gradient, p, alpha)
+            alpha = Wolfe_linesearch(cur_vector, p, func, gradient)
 
 
         if alpha == -100: 
@@ -336,6 +335,63 @@ def BFGS(x, func, gradient, armijo):
         
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN BFGS")
+    return recent_val, k
+
+# Runs DFP with Armijo backtracking line search 
+# Output: x
+def DFP(x, func, gradient, armijo): 
+    length = len(x)
+    H = np.identity(length)
+    prev_vector = x
+    cur_vector = x
+    k = 0 
+    I = np.identity(length)
+    alpha = START_ALPHA
+
+    stopping_point = 1e-8 * max(1, np.linalg.norm(gradient(x))) # gradient of OG vector 
+    
+    while (k < K_MAX): 
+        gradient_vector = gradient(cur_vector)
+        cur_gradient = np.linalg.norm(gradient(cur_vector))
+        recent_val = func(cur_vector)
+        print(f"Iteration: {k}, f(x): {recent_val}, ||gradf||: {cur_gradient}, alpha: {alpha}")
+
+        # stopping Condition, satisfiable convergence
+        if cur_gradient <= stopping_point: 
+            print("Final value of objective function: ", recent_val)
+            print("CONVERGED\n")
+            return func(cur_vector), k
+        
+    
+        p = -H @ gradient_vector
+        
+        # choose a steplength with Armijo backtracking linesearch
+        if (armijo): 
+            alpha = Armijo_backtracking(cur_vector, func, gradient, p, 1)
+        else: 
+            alpha = Wolfe_linesearch(cur_vector, p, func, gradient)
+
+        # update the iterate 
+        cur_vector = prev_vector + (alpha * p)
+
+        # define s & y 
+        s = cur_vector - prev_vector
+        y = gradient(cur_vector) - gradient(prev_vector) 
+
+        if np.dot(s, y) > (EMIN * np.linalg.norm(y) * np.linalg.norm(s)):
+            sy = np.dot(s, y)
+            Hy = H @ y
+            yHy = np.dot(y, Hy)
+
+            H = H + np.outer(s, s) / sy - np.outer(Hy, Hy) / yHy
+
+        # Set k <- k + 1
+        k += 1
+
+        prev_vector = cur_vector
+        
+    print("Final value of objective function: ", recent_val)
+    print("HIT MAX ITERATIONS IN DFP")
     return recent_val, k
 
 
@@ -568,27 +624,33 @@ def check_convergence(k):
         return "CONVERGED"
     
 
+
+def main(): 
+
+    parser = argparse.ArgumentParser(description="A script to run problems for the NLP final project.")
+
+    parser.add_argument("--problem_name", type=str, help="The problem you wish to run.")
+    parser.add_argument("--problem_string", type=str, help="The problem you wish to run.")
+    # one_v = [-1.2, 1]
+    # two_v = [-1] * 10
+    # three_v = [2] * 10
+    # four_v = [-1] * 100
+    # five_v = [2] * 100
+    # six_v = [2] * 1000
+    # seven_v = [2] * 10000
+    # eight_v = [1, 1]
+    # nine_v = [0, 0]
+    # ten_v = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+    # vectors = [one_v, two_v, three_v, four_v, five_v, six_v, seven_v, eight_v, nine_v, ten_v]
+
+    # steepest_descent(one_v, functions.Rosenbrock_function, functions.Rosenbrock_gradient, False)
+    
+
+
+
 if __name__ == "__main__":
-    
-    sys.stdout = open('output.txt', 'wt')
-    pdf = FPDF(format='letter')
-    pdf.add_page()
-    pdf.set_font('Arial', size=8)
-    
-    one_v = [-1.2, 1]
-    two_v = [-1] * 10
-    three_v = [2] * 10
-    four_v = [-1] * 100
-    five_v = [2] * 100
-    six_v = [2] * 1000
-    seven_v = [2] * 10000
-    eight_v = [1, 1]
-    nine_v = [0, 0]
-    ten_v = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-    vectors = [one_v, two_v, three_v, four_v, five_v, six_v, seven_v, eight_v, nine_v, ten_v]
-
-    
+    main() 
 
     
 

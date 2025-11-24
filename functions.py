@@ -1,3 +1,8 @@
+import math 
+import numpy as np 
+import sys
+
+
 # Calculating the Rosenbrock function given a x vector 
 # Output: scalar
 def Rosenbrock_function(x_vector): 
