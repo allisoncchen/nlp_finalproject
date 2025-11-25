@@ -660,14 +660,14 @@ def main():
     # argument_parser() 
 
     problems = [
-        {
-            "name": "P1_quad_10_10",
-            "n": 10,
-            "x0": 20 * np.random.rand(10) - 10,
-            "func": pr.quad_10_10_func,
-            "grad": pr.quad_10_10_grad,
-            "hess": pr.quad_10_10_Hess,
-        },
+        # {
+        #     "name": "P1_quad_10_10",
+        #     "n": 10,
+        #     "x0": 20 * np.random.rand(10) - 10,
+        #     "func": pr.quad_10_10_func,
+        #     "grad": pr.quad_10_10_grad,
+        #     "hess": pr.quad_10_10_Hess,
+        # },
         {
             "name": "P2_quad_10_1000",
             "n": 10,
@@ -760,24 +760,24 @@ def main():
 
     methods = [
         ("SD_armijo", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=True)),
-        ("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)),
+        #("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)),
         ("Newton_armijo", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        ("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        #("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
         ("Modified_Newtons_armijo", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        ("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        #("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
         ("BFGS_armijo", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=True)),
-        ("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)),
+        #("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)),
         ("DFP_armijo", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=True)), 
-        ("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), 
+        #("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), 
         ("L_BFGS_armijo", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=True)), 
-        ("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
+        #("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
         ("Newton_CG_armijo", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        ("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        #("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
     ]
     
-    results = []
 
     for i, problem in enumerate(problems, 1):
+        results = []
         print(f"PROBLEM NUMBER: {i}")
         x0 = problem["x0"]
         n = len(x0)
@@ -795,15 +795,14 @@ def main():
                 "Iterations": iters, 
                 "Time": elapsed_time,
             })
+        # Make table for each problem separately
+        print(f"SUMMARY TABLE for {problem['name']}")
+        with open(f"outputTableTest{problem['name']}.txt", "w") as f:
+            f.write("Method\tFinal f\tIteration\tTime (s)\n")
+            for res in results:
+                f.write(f"{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\n")
 
-     # Make table 
-    print("SUMMARY TABLE")
-    with open("outputTableTest.txt", "w") as f:
-        f.write("Problem\tMethod\tFinal f\tIteration\tTime (s)\n")
-        for res in results:
-            f.write(f"{res['Problem']}\t{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\n")
-
-    print("\nTable saved to outputTableTest.txt")
+        print(f"\nTable saved to outputTableTest{problem['name']}.txt")
 
 if __name__ == "__main__":
     main()
