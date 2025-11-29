@@ -1,8 +1,8 @@
 Method	Final f	Iteration	Time (s)
-SD_armijo	-4.21e+03	3000	19.13
+SD_armijo	-4.21e+03	3000	5.36
 Newton_armijo	-4.21e+03	1	0.00
-Modified_Newtons_armijo	-4.21e+03	1	0.01
-BFGS_armijo	-4.21e+03	3000	84.26
-DFP_armijo	-4.21e+03	978	2.96
-L_BFGS_armijo	-4.21e+03	3000	80.30
-Newton_CG_armijo	-4.21e+03	1	0.02
+Modified_Newtons_armijo	-4.21e+03	1	0.00
+BFGS_armijo	-4.21e+03	3000	41.77
+DFP_armijo	-4.21e+03	942	1.26
+L_BFGS_armijo	-4.21e+03	28	0.04
+Newton_CG_armijo	-4.21e+03	4	0.02

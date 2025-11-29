@@ -4,16 +4,17 @@ import sys
 import time 
 import functions 
 import argparse
-import matlab.engine # using matlab engine api in python 
+# import matlab.engine # using matlab engine api in python 
 import numpy as np
 import problems as pr
+import matplotlib.pyplot as plt
 
 # Initialize constants 
 START_ALPHA = 1
 C1 = 0.0004
 C2 = 0.9
 TAO = 0.5
-K_MAX = 3000
+K_MAX = 2000
 BETA = 0.0004
 EMIN = 10e-8
 
@@ -96,7 +97,7 @@ def steepest_descent(x, func, gradient, armijo):
         if norm_cur_gradient_vector <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, norm_cur_gradient_vector 
         
         # for every iteration after the initial, recalculate alpha 
         if k > 0: 
@@ -128,7 +129,7 @@ def steepest_descent(x, func, gradient, armijo):
     
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN STEEPEST DESCENT")
-    return recent_val, k
+    return recent_val, k, norm_cur_gradient_vector
 
 
 
@@ -155,7 +156,7 @@ def newtons_method(x, func, gradient, hessian, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k 
+            return func(cur_vector), k, cur_gradient 
     
 
         # Choose a descent direction p  
@@ -187,7 +188,7 @@ def newtons_method(x, func, gradient, hessian, armijo):
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN NEWTONS")
 
-    return recent_val, k
+    return recent_val, k, cur_gradient
 
 
 # Runs the cholesky algorithm to find the optimal addition to the hessian matrix
@@ -244,7 +245,7 @@ def modified_newtons_method(x, func, gradient, hessian, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, cur_gradient 
     
         # delta = 0
         # Choosing a descent direction p  
@@ -283,7 +284,7 @@ def modified_newtons_method(x, func, gradient, hessian, armijo):
     
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN MODIFIED NEWTONS")
-    return recent_val, k
+    return recent_val, k, cur_gradient 
 
 
 
@@ -313,7 +314,7 @@ def BFGS(x, func, gradient, armijo):
             if cur_gradient <= stopping_point: 
                 print("Final value of objective function: ", recent_val)
                 print("CONVERGED\n")
-                return func(cur_vector), k
+                return func(cur_vector), k, cur_gradient
             
         
             p = -H @ gradient_vector
@@ -343,7 +344,7 @@ def BFGS(x, func, gradient, armijo):
         
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN BFGS")
-    return recent_val, k
+    return recent_val, k, cur_gradient 
 
 # Runs DFP with Armijo backtracking line search 
 # Output: x
@@ -368,7 +369,7 @@ def DFP(x, func, gradient, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, cur_gradient
         
     
         p = -H @ gradient_vector
@@ -400,7 +401,7 @@ def DFP(x, func, gradient, armijo):
         
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN DFP")
-    return recent_val, k
+    return recent_val, k, cur_gradient
 
 
 # Input is gradient at f(x_k) and last y_k, s_k pairs, replaces H_k nabla f update 
@@ -459,7 +460,7 @@ def L_BFGS_large_memory(x, func, gradient):
         if cur_gradient_norm <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, cur_gradient_norm
 
         
         p = -(two_loop_recursion(cur_gradient, y_s_pairs, gamma, I)) # y_s_pairs is going to be empty on first iteration
@@ -492,7 +493,7 @@ def L_BFGS_large_memory(x, func, gradient):
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN L_BFGS")
 
-    return recent_val, k
+    return recent_val, k, cur_gradient_norm
 
 
 def L_BFGS(x, func, gradient, armijo): 
@@ -520,7 +521,7 @@ def L_BFGS(x, func, gradient, armijo):
         if cur_gradient_norm <= stopping_point: 
             print("Final value of objective function: ", recent_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, cur_gradient_norm
 
         
         p = -(two_loop_recursion(cur_gradient, y_s_pairs, gamma, I)) # y_s_pairs is going to be empty on first iteration
@@ -557,7 +558,7 @@ def L_BFGS(x, func, gradient, armijo):
     print("Final value of objective function: ", recent_val)
     print("HIT MAX ITERATIONS IN L_BFGS")
 
-    return recent_val, k
+    return recent_val, k, cur_gradient_norm
 
 
 # Runs Newton CG method with Wolfe line search 
@@ -583,7 +584,7 @@ def Newton_CG(x, func, gradient_func, hessian, armijo):
         if cur_gradient <= stopping_point: 
             print("Final value of objective function: ", func_val)
             print("CONVERGED\n")
-            return func(cur_vector), k
+            return func(cur_vector), k, cur_gradient
         
         j = 0 
         while j < K_MAX: 
@@ -623,7 +624,7 @@ def Newton_CG(x, func, gradient_func, hessian, armijo):
     print("Final value of objective function: ", func_val)
     print("HIT MAX ITERATIONS IN NEWTON CG")
 
-    return func_val, k
+    return func_val, k, cur_gradient
 
 def check_convergence(k): 
     if k >= K_MAX: 
@@ -655,19 +656,17 @@ def argument_parser():
         lbfgs_memory_size = input("Input the problem you wish to run:")
     
     
-def main(): 
 
-    # argument_parser() 
-
+def compare_algorithms(): 
     problems = [
-        # {
-        #     "name": "P1_quad_10_10",
-        #     "n": 10,
-        #     "x0": 20 * np.random.rand(10) - 10,
-        #     "func": pr.quad_10_10_func,
-        #     "grad": pr.quad_10_10_grad,
-        #     "hess": pr.quad_10_10_Hess,
-        # },
+        {
+            "name": "P1_quad_10_10",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_10_func,
+            "grad": pr.quad_10_10_grad,
+            "hess": pr.quad_10_10_Hess,
+        },
         {
             "name": "P2_quad_10_1000",
             "n": 10,
@@ -677,7 +676,7 @@ def main():
             "hess": pr.quad_10_1000_Hess,
         },
         {
-            "name": "P3_quad_1000_10",
+            "name": "P3_quad_1000_10", # I think this is causing problems 
             "n": 1000,
             "x0": 20 * np.random.rand(1000) - 10,
             "func": pr.quad_1000_10_func,
@@ -759,20 +758,192 @@ def main():
     ]
 
     methods = [
-        ("SD_armijo", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=True)),
-        #("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)),
-        ("Newton_armijo", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        #("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
-        ("Modified_Newtons_armijo", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        #("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
-        ("BFGS_armijo", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=True)),
-        #("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)),
-        ("DFP_armijo", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=True)), 
-        #("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), 
-        ("L_BFGS_armijo", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=True)), 
-        #("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
+        # ("SD_armijo", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=True)), # not run 
+        # ("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)), # not run 
+        # ("Newton_armijo", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        # ("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        # ("Modified_Newtons_armijo", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        # ("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        # ("BFGS_armijo", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=True)), # not run 
+        # ("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)), # not run 
+        # ("DFP_armijo", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=True)), # not run 
+        # ("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), # not run 
+        # ("L_BFGS_armijo", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=True)), 
+        # ("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
         ("Newton_CG_armijo", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
-        #("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        # ("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+    ]
+    
+
+    # for i, problem in enumerate(problems, 1):
+    for method_name, method_func in methods:
+        results = {}
+        print(f"ALGO NAME: {method_name}")
+
+        # for method_name, method_func in methods:
+        for i, problem in enumerate(problems, 1):
+            x0 = problem["x0"] # initial va; 
+            n = len(x0)
+            n = problem["n"]
+
+            start_time = time.time()
+            f_final, iters, gradient_norm = method_func(problem)
+            elapsed_time = time.time() - start_time
+
+            results[problem['name']] = ({
+                "Problem": f"P{i} ({problem['name']})",
+                "Method": method_name,
+                "f_final" : f_final,
+                "Iterations": iters, 
+                "Gradient_Norm": gradient_norm,
+                "Time": elapsed_time,
+            })
+
+       
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(20, 15))
+
+        all_problems = [problem['name'] for i, problem in enumerate(problems, 1)]
+        iterations = [results[problem]['Iterations'] for problem in all_problems]
+        axes[0].set_title(f"{method_name} Problem vs. Iterations")
+        axes[0].set_xlabel("Problem")
+        axes[0].set_xticks(np.arange(0, len(all_problems)))
+        axes[0].set_xticklabels(all_problems, rotation=90)
+        axes[0].set_ylabel("Iterations")
+        axes[0].scatter(all_problems, iterations)
+
+    
+        gradient_norms = [results[problem]['Gradient_Norm'] for problem in all_problems]
+        axes[1].set_title(f"{method_name} Norm of Gradient vs. Iterations")
+        axes[1].set_xlabel("Norm of Gradient")
+        axes[1].set_xticks(np.arange(0, len(all_problems)))
+        # axes[1].set_xticklabels(gradient_norms, rotation=90)
+        axes[1].set_ylabel("Iterations")
+        axes[1].set_xticklabels(gradient_norms, rotation=90) 
+        axes[1].scatter(np.arange(0, len(all_problems)), iterations) 
+        plt.tight_layout() # to prevent plots from overlapping 
+        plt.savefig(f"{method_name}.png")
+
+
+
+
+def main(): 
+
+    # argument_parser() 
+
+    problems = [
+        {
+            "name": "P1_quad_10_10",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_10_func,
+            "grad": pr.quad_10_10_grad,
+            "hess": pr.quad_10_10_Hess,
+        },
+        # {
+        #     "name": "P2_quad_10_1000",
+        #     "n": 10,
+        #     "x0": 20 * np.random.rand(10) - 10,
+        #     "func": pr.quad_10_1000_func,
+        #     "grad": pr.quad_10_1000_grad,
+        #     "hess": pr.quad_10_1000_Hess,
+        # },
+        # {
+        #     "name": "P3_quad_1000_10",
+        #     "n": 1000,
+        #     "x0": 20 * np.random.rand(1000) - 10,
+        #     "func": pr.quad_1000_10_func,
+        #     "grad": pr.quad_1000_10_grad,
+        #     "hess": pr.quad_1000_10_Hess,
+        # },
+        # {
+        #     "name": "P4_quad_1000_1000",
+        #     "n": 1000,
+        #     "x0": 20 * np.random.rand(1000) - 10,
+        #     "func": pr.quad_1000_1000_func,
+        #     "grad": pr.quad_1000_1000_grad,
+        #     "hess": pr.quad_1000_1000_Hess,
+        # },
+        # {
+        #     "name": "P5_quartic_1",
+        #     "n": 4,
+        #     "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+        #     "func": pr.quartic_1_func,
+        #     "grad": pr.quartic_1_grad,
+        #     "hess": pr.quartic_1_Hess,
+        # },
+        # {
+        #     "name": "P6_quartic_2",
+        #     "n": 4,
+        #     "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+        #     "func": pr.quartic_2_func,
+        #     "grad": pr.quartic_2_grad,
+        #     "hess": pr.quartic_2_Hess,
+        # },
+        # {
+        #     "name": "P7_Extended_Rosenbrock_n2",
+        #     "n": 2,
+        #     "x0": np.array([-1.2, 1.0]),
+        #     "func": pr.ExtRF,
+        #     "grad": pr.grad_ExtRF,
+        #     "hess": pr.hess_ExtRF,
+        # },
+        # {
+        #     "name": "P8_Extended_Rosenbrock_n100",
+        #     "n": 100,
+        #     "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+        #     "func": pr.ExtRF_100,
+        #     "grad": pr.grad_ExtRF_100,
+        #     "hess": pr.hess_ExtRF_100,
+        # },
+        # {
+        #     "name": "P9_Beale",
+        #     "n": 2,
+        #     "x0": np.array([1.0, 1.0]),
+        #     "func": pr.Beale_function,
+        #     "grad": pr.Beale_gradient,
+        #     "hess": pr.Beale_hessian,
+        # },
+        # {
+        #     "name": "P10_exponential_10",
+        #     "n": 10,
+        #     "x0": np.concatenate(([1.0], np.zeros(9))),
+        #     "func": pr.exponential_10_func,
+        #     "grad": pr.exponential_10_grad,
+        #     "hess": pr.exponential_10_Hess,
+        # },
+        # {
+        #     "name": "P11_exponential_1000",
+        #     "n": 1000,
+        #     "x0": np.concatenate(([1.0], np.zeros(999))),
+        #     "func": pr.exponential_1000_func,
+        #     "grad": pr.exponential_1000_grad,
+        #     "hess": pr.exponential_1000_Hess,
+        # },
+        # {
+        #     "name": "P12_genhumps_5",
+        #     "n": 5,
+        #     "x0": np.full(5, -506.2),
+        #     "func": pr.genhumps_5_func,
+        #     "grad": pr.genhumps_5_grad,
+        #     "hess": pr.genhumps_5_Hess,
+        # },
+    ]
+
+    methods = [
+        ("SD_armijo", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=True)),
+        ("SD_wolfe", lambda p: steepest_descent(p["x0"], p["func"], p["grad"], armijo=False)),
+        ("Newton_armijo", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Newton_wolfe", lambda p: newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        ("Modified_Newtons_armijo", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Modified_Newtons_wolfe", lambda p: modified_newtons_method(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
+        ("BFGS_armijo", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=True)),
+        ("BFGS_wolfe", lambda p: BFGS(p["x0"], p["func"], p["grad"], armijo=False)),
+        ("DFP_armijo", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=True)), 
+        ("DFP_wolfe", lambda p: DFP(p["x0"], p["func"], p["grad"], armijo=False)), 
+        ("L_BFGS_armijo", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=True)), 
+        ("L_BFGS_wolfe", lambda p: L_BFGS(p["x0"], p["func"], p["grad"], armijo=False)), 
+        ("Newton_CG_armijo", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=True)),
+        ("Newton_CG_wolfe", lambda p: Newton_CG(p["x0"], p["func"], p["grad"], p["hess"], armijo=False)),
     ]
     
 
@@ -782,10 +953,11 @@ def main():
         x0 = problem["x0"]
         n = len(x0)
         n = problem["n"]
+
         for method_name, method_func in methods:
             print(method_name)
             start_time = time.time()
-            f_final, iters = method_func(problem)
+            f_final, iters, gradient_norm = method_func(problem)
             elapsed_time = time.time() - start_time
 
             results.append({
@@ -793,16 +965,25 @@ def main():
                 "Method": method_name,
                 "f_final" : f_final,
                 "Iterations": iters, 
+                "Gradient_Norm": gradient_norm,
                 "Time": elapsed_time,
             })
+
         # Make table for each problem separately
         print(f"SUMMARY TABLE for {problem['name']}")
         with open(f"outputTableTest{problem['name']}.txt", "w") as f:
-            f.write("Method\tFinal f\tIteration\tTime (s)\n")
+            f.write("Method\t\tFinal_f\tGradientNorm\tIteration\tTime(s)\n")
             for res in results:
-                f.write(f"{res['Method']}\t{res['f_final']:.2e}\t{res['Iterations']}\t{res['Time']:.2f}\n")
+                f.write(f"{res['Method']}\t{res['f_final']:.2e}\t{res['Gradient_Norm']:.2f}\t{res['Iterations']}\t{res['Time']:.2f}\n")
+        
+
+
+                plt.xlabel("Function")
+                plt.title({problem['name']})
+
 
         print(f"\nTable saved to outputTableTest{problem['name']}.txt")
 
 if __name__ == "__main__":
-    main()
+    compare_algorithms()
+    # main()
