@@ -525,9 +525,10 @@ def parameter_search():
     """
     
     # Define parameter ranges to test
-    c1_values = [1e-4, 1e-3, 1e-2, 0.1]
-    c2_values = [0.1, 0.5, 0.9, 0.99]
-    alpha_values = [0.1, 0.5, 1.0, 2.0]
+    c1_values = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.3, 0.5]
+    c2_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
+    alpha_values = [0.1, 0.3, 0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 1.9, 2.0]
+
     problems = [
         {
             "name": "P7_Extended_Rosenbrock_n2",
