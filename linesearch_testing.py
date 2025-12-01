@@ -6,19 +6,12 @@ import itertools
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
-
-# Import your existing code
 import problems as pr
 
 K_MAX = 2000
-TAO = 0.5
+TAU = 0.5
 BETA = 0.0004
 EMIN = 10e-8
-
-
-# ============================================================================
-# PARAMETERIZED LINE SEARCH FUNCTIONS
-# ============================================================================
 
 # Armijo version that takes c1 
 def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1): 
@@ -35,7 +28,7 @@ def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1):
 
         # Increment alpha 
         else: 
-            a = TAO * a # a is getting smaller 
+            a = TAU * a # a is getting smaller 
         
         i += 1
     
@@ -535,53 +528,25 @@ def parameter_search():
     c1_values = [1e-4, 1e-3, 1e-2, 0.1]
     c2_values = [0.1, 0.5, 0.9, 0.99]
     alpha_values = [0.1, 0.5, 1.0, 2.0]
-    
-    # Define problems (start with a smaller subset, comment/uncomment as needed)
     problems = [
         {
-            "name": "P1_quad_10_10",
-            "n": 10,
-            "x0": 20 * np.random.rand(10) - 10,
-            "func": pr.quad_10_10_func,
-            "grad": pr.quad_10_10_grad,
-            "hess": pr.quad_10_10_Hess,
+            "name": "P7_Extended_Rosenbrock_n2",
+            "n": 2,
+            "x0": np.array([-1.2, 1.0]),
+            "func": pr.ExtRF,
+            "grad": pr.grad_ExtRF,
+            "hess": pr.hess_ExtRF,
         },
         {
-            "name": "P2_quad_10_1000",
-            "n": 10,
-            "x0": 20 * np.random.rand(10) - 10,
-            "func": pr.quad_10_1000_func,
-            "grad": pr.quad_10_1000_grad,
-            "hess": pr.quad_10_1000_Hess,
-        },
-        # {
-        #     "name": "P3_quad_1000_10",
-        #     "n": 1000,
-        #     "x0": 20 * np.random.rand(1000) - 10,
-        #     "func": pr.quad_1000_10_func,
-        #     "grad": pr.quad_1000_10_grad,
-        #     "hess": pr.quad_1000_10_Hess,
-        # },
-        # {
-        #     "name": "P4_quad_1000_1000",
-        #     "n": 1000,
-        #     "x0": 20 * np.random.rand(1000) - 10,
-        #     "func": pr.quad_1000_1000_func,
-        #     "grad": pr.quad_1000_1000_grad,
-        #     "hess": pr.quad_1000_1000_Hess,
-        # },
-        {
-            "name": "P5_quartic_1",
-            "n": 4,
-            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
-            "func": pr.quartic_1_func,
-            "grad": pr.quartic_1_grad,
-            "hess": pr.quartic_1_Hess,
-        },
-        # Add more problems as needed
+            "name": "P8_Extended_Rosenbrock_n100",
+            "n": 100,
+            "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+            "func": pr.ExtRF_100,
+            "grad": pr.grad_ExtRF_100,
+            "hess": pr.hess_ExtRF_100,
+        }
     ]
     
-    # Define methods
     methods = [
         ("SD_armijo", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
         ("SD_wolfe", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
@@ -864,10 +829,9 @@ def generate_plots(df, output_dir):
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Group by alpha, plot average iterations
-        grouped = method_df.groupby('alpha')['iterations'].agg(['mean', 'std', 'count'])
-        ax.errorbar(grouped.index, grouped['mean'], yerr=grouped['std'], 
-                   marker='o', capsize=5, capthick=2, linewidth=2, markersize=8)
+        # Group by alpha and plot avg iterations
+        grouped = method_df.groupby('alpha')['iterations'].mean()
+        ax.plot(grouped.index, grouped.values, marker='o', linewidth=2, markersize=8)
         
         ax.set_xlabel('Initial Alpha Value', fontsize=12)
         ax.set_ylabel('Average Iterations', fontsize=12)
@@ -1033,6 +997,116 @@ def generate_plots(df, output_dir):
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"   Saved: {plot_path.name}")
+    
+    # Optimal parameters plot for Wolfe methods
+    wolfe_methods = [m for m in converged_df['method'].unique() if 'wolfe' in m.lower()]
+    
+    if len(wolfe_methods) > 0:
+        # Get best parameters for each Wolfe method
+        wolfe_best_params = []
+        for method in wolfe_methods:
+            method_df = converged_df[converged_df['method'] == method]
+            if len(method_df) > 0:
+                grouped = method_df.groupby(['c1', 'c2', 'alpha'])['iterations'].mean()
+                best_idx = grouped.idxmin()
+                wolfe_best_params.append({
+                    'method': method,
+                    'c1': best_idx[0],
+                    'c2': best_idx[1],
+                    'alpha': best_idx[2]
+                })
+        
+        if len(wolfe_best_params) > 0:
+            # Create figure with 3 subplots
+            fig, axes = plt.subplots(3, 1, figsize=(12, 12))
+            
+            methods = [p['method'] for p in wolfe_best_params]
+            c1_values = [p['c1'] for p in wolfe_best_params]
+            c2_values = [p['c2'] for p in wolfe_best_params]
+            alpha_values = [p['alpha'] for p in wolfe_best_params]
+            
+            x_pos = np.arange(len(methods))
+            
+            # optimal C1
+            axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
+            axes[0].set_xticks(x_pos)
+            axes[0].set_xticklabels(methods, rotation=45, ha='right')
+            axes[0].set_ylabel('Optimal C1', fontsize=12)
+            axes[0].set_yscale('log')
+            axes[0].set_title('Optimal C1 Parameter by Method (Wolfe)', fontsize=14, fontweight='bold')
+            axes[0].grid(True, alpha=0.3, axis='y')
+            
+            # optimal C2
+            axes[1].bar(x_pos, c2_values, color='lightgreen', edgecolor='darkgreen', linewidth=1.5)
+            axes[1].set_xticks(x_pos)
+            axes[1].set_xticklabels(methods, rotation=45, ha='right')
+            axes[1].set_ylabel('Optimal C2', fontsize=12)
+            axes[1].set_title('Optimal C2 Parameter by Method (Wolfe)', fontsize=14, fontweight='bold')
+            axes[1].grid(True, alpha=0.3, axis='y')
+            
+            # optimal alpha
+            axes[2].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
+            axes[2].set_xticks(x_pos)
+            axes[2].set_xticklabels(methods, rotation=45, ha='right')
+            axes[2].set_ylabel('Optimal Alpha', fontsize=12)
+            axes[2].set_title('Optimal Initial Alpha by Method (Wolfe)', fontsize=14, fontweight='bold')
+            axes[2].grid(True, alpha=0.3, axis='y')
+            
+            plt.tight_layout()
+            plot_path = plots_dir / "optimal_params_wolfe.png"
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"   Saved: {plot_path.name}")
+    
+    # Optimal parameters plot for Armijo methods
+    armijo_methods = [m for m in converged_df['method'].unique() if 'armijo' in m.lower()]
+    
+    if len(armijo_methods) > 0:
+        # Get best parameters for each Armijo method
+        armijo_best_params = []
+        for method in armijo_methods:
+            method_df = converged_df[converged_df['method'] == method]
+            if len(method_df) > 0:
+                grouped = method_df.groupby(['c1', 'alpha'])['iterations'].mean()
+                best_idx = grouped.idxmin()
+                armijo_best_params.append({
+                    'method': method,
+                    'c1': best_idx[0],
+                    'alpha': best_idx[1]
+                })
+        
+        if len(armijo_best_params) > 0:
+            # Create figure with 2 subplots (vertically stacked)
+            fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+            
+            methods = [p['method'] for p in armijo_best_params]
+            c1_values = [p['c1'] for p in armijo_best_params]
+            alpha_values = [p['alpha'] for p in armijo_best_params]
+            
+            x_pos = np.arange(len(methods))
+            
+            # optimal C1
+            axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
+            axes[0].set_xticks(x_pos)
+            axes[0].set_xticklabels(methods, rotation=45, ha='right')
+            axes[0].set_ylabel('Optimal C1', fontsize=12)
+            axes[0].set_yscale('log')
+            axes[0].set_title('Optimal C1 Parameter by Method (Armijo)', fontsize=14, fontweight='bold')
+            axes[0].grid(True, alpha=0.3, axis='y')
+            
+            # alpha
+            axes[1].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
+            axes[1].set_xticks(x_pos)
+            axes[1].set_xticklabels(methods, rotation=45, ha='right')
+            axes[1].set_ylabel('Optimal Alpha', fontsize=12)
+            axes[1].set_title('Optimal Initial Alpha by Method (Armijo)', fontsize=14, fontweight='bold')
+            axes[1].grid(True, alpha=0.3, axis='y')
+            
+            plt.tight_layout()
+            plot_path = plots_dir / "optimal_params_armijo.png"
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"   Saved: {plot_path.name}")
     
     print(f"\nAll plots saved to: {plots_dir}")
 
