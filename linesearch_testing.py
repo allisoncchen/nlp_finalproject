@@ -9,12 +9,12 @@ from pathlib import Path
 import problems as pr
 
 K_MAX = 2000
-TAU = 0.5
+TAU = 0.5  # Default tau value
 BETA = 0.0004
 EMIN = 10e-8
 
-# Armijo version that takes c1 
-def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1): 
+# Armijo version that takes c1 and tau
+def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1, tau): 
     i = 0 
     a = alpha_init 
     
@@ -28,7 +28,7 @@ def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1):
 
         # Increment alpha 
         else: 
-            a = TAU * a # a is getting smaller 
+            a = tau * a # a is getting smaller 
         
         i += 1
     
@@ -64,14 +64,9 @@ def Wolfe_linesearch_param(x, p, func, gradient, c1, c2):
     
     return a, i
 
-
-# ============================================================================
-# PARAMETERIZED OPTIMIZATION METHODS
-# ============================================================================
-
 # Runs the steepest descent algorithm with Armijo backtracking 
-# Modified to accept c1, c2, start_alpha as parameters
-def steepest_descent_param(x, func, gradient, armijo, c1, c2, start_alpha): 
+# Modified to accept c1, c2, start_alpha, tau as parameters
+def steepest_descent_param(x, func, gradient, armijo, c1, c2, start_alpha, tau): 
     
     alpha = start_alpha
     
@@ -100,7 +95,7 @@ def steepest_descent_param(x, func, gradient, armijo, c1, c2, start_alpha):
 
         # find alpha
         if armijo == True: 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, alpha, c1)
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, alpha, c1, tau)
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
 
@@ -120,8 +115,8 @@ def steepest_descent_param(x, func, gradient, armijo, c1, c2, start_alpha):
 
 
 # Runs Newton's method with Armijo backtracking to find alpha
-# Modified to accept c1, c2, start_alpha as parameters
-def newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha):
+# Modified to accept c1, c2, start_alpha, tau as parameters
+def newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha, tau):
     
     cur_vector = x
     k = 0 # for the outer loop 
@@ -148,7 +143,7 @@ def newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha
             
         # Find alpha 
         if armijo == True: 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, 1, c1)
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
         
@@ -200,8 +195,8 @@ def cholesky_with_added_multiple_of_identity(A):
 
 
 # Runs modified Newton's method with Armijo backtracking to get the alpha and Cholesky's to get descent direction 
-# Modified to accept c1, c2, start_alpha as parameters
-def modified_newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha): 
+# Modified to accept c1, c2, start_alpha, tau as parameters
+def modified_newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha, tau): 
 
     cur_vector = x
     k = 0 # outer loop 
@@ -235,7 +230,7 @@ def modified_newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, st
         
         # Find alpha 
         if armijo == True: 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, 1, c1) # Choose using Armijo backtracking line search 
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau) # Choose using Armijo backtracking line search 
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2) # Choose using Wolfe line search 
         
@@ -254,7 +249,7 @@ def modified_newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, st
 
 
 # Modified BFGS
-def BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha): 
+def BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha, tau): 
     length = len(x)
     H = np.identity(length)
     prev_vector = x
@@ -278,7 +273,7 @@ def BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha):
         
         # choose a steplength with wolfe's
         if armijo == True: 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, 1, c1)
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
 
@@ -307,8 +302,8 @@ def BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha):
 
 
 # Runs DFP with Armijo backtracking line search 
-# Modified to accept c1, c2, start_alpha as parameters
-def DFP_param(x, func, gradient, armijo, c1, c2, start_alpha): 
+# Modified to accept c1, c2, start_alpha, tau as parameters
+def DFP_param(x, func, gradient, armijo, c1, c2, start_alpha, tau): 
     length = len(x)
     H = np.identity(length)
     prev_vector = x
@@ -332,7 +327,7 @@ def DFP_param(x, func, gradient, armijo, c1, c2, start_alpha):
         
         # choose a steplength with Armijo backtracking linesearch
         if (armijo): 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, 1, c1)
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
 
@@ -394,7 +389,7 @@ def two_loop_recursion(cur_gradient, y_s_pairs, gamma, I):
 
 
 # Modified L-BFGS
-def L_BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha): 
+def L_BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha, tau): 
     gamma = 1 # starts off as one from the specs 
     n = len(x)
     m = min(n, 10) 
@@ -422,7 +417,7 @@ def L_BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha):
 
         # choose a steplength with wolfe's
         if armijo == True: 
-            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, 1, c1)
+            alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
             alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
 
@@ -454,8 +449,8 @@ def L_BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha):
 
 
 # Runs Newton CG method with Wolfe line search 
-# Modified to accept c1, c2, start_alpha as parameters
-def Newton_CG_param(x, func, gradient_func, hessian, armijo, c1, c2, start_alpha): 
+# Modified to accept c1, c2, start_alpha, tau as parameters
+def Newton_CG_param(x, func, gradient_func, hessian, armijo, c1, c2, start_alpha, tau): 
     k = 0 
     alpha_k = start_alpha
     cur_vector = x
@@ -500,7 +495,7 @@ def Newton_CG_param(x, func, gradient_func, hessian, armijo, c1, c2, start_alpha
         
 
         if armijo: 
-            alpha_k, evals = Armijo_backtracking_param(cur_vector, func, gradient_func, p, 1, c1)
+            alpha_k, evals = Armijo_backtracking_param(cur_vector, func, gradient_func, p, start_alpha, c1, tau)
         else: 
             alpha_k, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient_func, c1, c2)
 
@@ -514,11 +509,6 @@ def Newton_CG_param(x, func, gradient_func, hessian, armijo, c1, c2, start_alpha
 
     return func(cur_vector), k, cur_gradient, False, total_func_evals
 
-
-# ============================================================================
-# PARAMETER SEARCH FRAMEWORK
-# ============================================================================
-
 def parameter_search():
     """
     Main function to run parameter search across all combinations
@@ -528,6 +518,7 @@ def parameter_search():
     c1_values = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.3, 0.5]
     c2_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
     alpha_values = [0.1, 0.3, 0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 1.9, 2.0]
+    tau = TAU  # Fixed tau for main parameter search
 
     problems = [
         {
@@ -549,20 +540,20 @@ def parameter_search():
     ]
     
     methods = [
-        ("SD_armijo", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
-        ("SD_wolfe", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
-        ("Newton_armijo", lambda p, c1, c2, alpha: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
-        ("Newton_wolfe", lambda p, c1, c2, alpha: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
-        ("Modified_Newton_armijo", lambda p, c1, c2, alpha: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
-        ("Modified_Newton_wolfe", lambda p, c1, c2, alpha: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
-        ("BFGS_armijo", lambda p, c1, c2, alpha: BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
-        ("BFGS_wolfe", lambda p, c1, c2, alpha: BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
-        ("DFP_armijo", lambda p, c1, c2, alpha: DFP_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
-        ("DFP_wolfe", lambda p, c1, c2, alpha: DFP_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
-        ("L_BFGS_armijo", lambda p, c1, c2, alpha: L_BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
-        ("L_BFGS_wolfe", lambda p, c1, c2, alpha: L_BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
-        ("Newton_CG_armijo", lambda p, c1, c2, alpha: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
-        ("Newton_CG_wolfe", lambda p, c1, c2, alpha: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
+        ("SD_armijo", lambda p, c1, c2, alpha, tau: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha, tau)),
+        ("SD_wolfe", lambda p, c1, c2, alpha, tau: steepest_descent_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha, tau)),
+        ("Newton_armijo", lambda p, c1, c2, alpha, tau: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha, tau)),
+        ("Newton_wolfe", lambda p, c1, c2, alpha, tau: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha, tau)),
+        ("Modified_Newton_armijo", lambda p, c1, c2, alpha, tau: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha, tau)),
+        ("Modified_Newton_wolfe", lambda p, c1, c2, alpha, tau: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha, tau)),
+        ("BFGS_armijo", lambda p, c1, c2, alpha, tau: BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha, tau)),
+        ("BFGS_wolfe", lambda p, c1, c2, alpha, tau: BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha, tau)),
+        ("DFP_armijo", lambda p, c1, c2, alpha, tau: DFP_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha, tau)),
+        ("DFP_wolfe", lambda p, c1, c2, alpha, tau: DFP_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha, tau)),
+        ("L_BFGS_armijo", lambda p, c1, c2, alpha, tau: L_BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha, tau)),
+        ("L_BFGS_wolfe", lambda p, c1, c2, alpha, tau: L_BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha, tau)),
+        ("Newton_CG_armijo", lambda p, c1, c2, alpha, tau: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha, tau)),
+        ("Newton_CG_wolfe", lambda p, c1, c2, alpha, tau: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha, tau)),
     ]
     
     # Create output directory
@@ -581,6 +572,7 @@ def parameter_search():
     print(f"C1 values: {c1_values}")
     print(f"C2 values: {c2_values}")
     print(f"Alpha values: {alpha_values}")
+    print(f"Tau (fixed): {tau}")
     print("-" * 80)
     
     for problem in problems:
@@ -614,7 +606,7 @@ def parameter_search():
                 try:
                     # Run the optimization
                     start_time = time.time()
-                    f_final, iters, grad_norm, converged, func_evals = method_func(problem, c1, c2, alpha)
+                    f_final, iters, grad_norm, converged, func_evals = method_func(problem, c1, c2, alpha, tau)
                     elapsed_time = time.time() - start_time
                     
                     # Store results
@@ -624,6 +616,7 @@ def parameter_search():
                         'c1': c1,
                         'c2': c2 if not is_armijo else None,
                         'alpha': alpha,
+                        'tau': tau if is_armijo else None,
                         'iterations': iters,
                         'converged': converged,
                         'f_final': f_final,
@@ -646,6 +639,7 @@ def parameter_search():
                         'c1': c1,
                         'c2': c2 if not is_armijo else None,
                         'alpha': alpha,
+                        'tau': tau if is_armijo else None,
                         'iterations': K_MAX,
                         'converged': False,
                         'f_final': None,
@@ -667,13 +661,216 @@ def parameter_search():
     print(f"Results saved to: {csv_path}")
     print(f"{'='*80}")
     
-    # Generate summary statistics
-    generate_summary_statistics(df, output_dir)
-    
-    # Generate plots
-    generate_plots(df, output_dir)
-    
     return df
+
+
+def tau_search():
+    """
+    Separate focused search varying only tau
+    Uses default values: c1=1e-2, c2=0.9, alpha=1.0
+    """
+    
+    print("\n\n" + "="*80)
+    print("STARTING TAU PARAMETER SEARCH (Armijo methods only)")
+    print("="*80)
+    
+    # Default parameters
+    c1_default = 1e-2
+    c2_default = 0.9
+    alpha_default = 1.0
+    
+    # Tau values to test
+    tau_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    
+    problems = [
+        {
+            "name": "P7_Extended_Rosenbrock_n2",
+            "n": 2,
+            "x0": np.array([-1.2, 1.0]),
+            "func": pr.ExtRF,
+            "grad": pr.grad_ExtRF,
+            "hess": pr.hess_ExtRF,
+        },
+        {
+            "name": "P8_Extended_Rosenbrock_n100",
+            "n": 100,
+            "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+            "func": pr.ExtRF_100,
+            "grad": pr.grad_ExtRF_100,
+            "hess": pr.hess_ExtRF_100,
+        }
+    ]
+    
+    # Only Armijo methods (tau doesn't affect Wolfe)
+    methods = [
+        ("SD_armijo", lambda p, tau: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
+        ("Newton_armijo", lambda p, tau: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
+        ("Modified_Newton_armijo", lambda p, tau: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
+        ("BFGS_armijo", lambda p, tau: BFGS_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
+        ("DFP_armijo", lambda p, tau: DFP_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
+        ("L_BFGS_armijo", lambda p, tau: L_BFGS_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
+        ("Newton_CG_armijo", lambda p, tau: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
+    ]
+    
+    # Create output directory
+    output_dir = Path("parameter_search_results")
+    output_dir.mkdir(exist_ok=True)
+    
+    # Store all results
+    tau_results = []
+    
+    print(f"Testing {len(tau_values)} tau values: {tau_values}")
+    print(f"Default parameters: c1={c1_default}, alpha={alpha_default}")
+    print(f"Problems: {len(problems)}, Methods: {len(methods)}")
+    print("-" * 80)
+    
+    for problem in problems:
+        print(f"\n{'='*80}")
+        print(f"Testing Problem: {problem['name']}")
+        print(f"{'='*80}")
+        
+        for method_name, method_func in methods:
+            print(f"\n  Method: {method_name}")
+            
+            for tau in tau_values:
+                print(f"    Testing tau={tau:.1f}...", end=" ")
+                
+                try:
+                    # Run the optimization
+                    start_time = time.time()
+                    f_final, iters, grad_norm, converged, func_evals = method_func(problem, tau)
+                    elapsed_time = time.time() - start_time
+                    
+                    # Store results
+                    result = {
+                        'problem': problem['name'],
+                        'method': method_name,
+                        'c1': c1_default,
+                        'c2': None,
+                        'alpha': alpha_default,
+                        'tau': tau,
+                        'iterations': iters,
+                        'converged': converged,
+                        'f_final': f_final,
+                        'grad_norm': grad_norm,
+                        'func_evals': func_evals,
+                        'time': elapsed_time,
+                    }
+                    
+                    tau_results.append(result)
+                    
+                    status = "Converged" if converged else "Failed"
+                    print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
+                    
+                except Exception as e:
+                    print(f"✗ Error: {str(e)}")
+                    result = {
+                        'problem': problem['name'],
+                        'method': method_name,
+                        'c1': c1_default,
+                        'c2': None,
+                        'alpha': alpha_default,
+                        'tau': tau,
+                        'iterations': K_MAX,
+                        'converged': False,
+                        'f_final': None,
+                        'grad_norm': None,
+                        'func_evals': None,
+                        'time': None,
+                        'error': str(e)
+                    }
+                    tau_results.append(result)
+    
+    # Convert to DataFrame
+    tau_df = pd.DataFrame(tau_results)
+    
+    # Save tau results to CSV
+    csv_path = output_dir / "tau_search_results.csv"
+    tau_df.to_csv(csv_path, index=False)
+    print(f"\n\n{'='*80}")
+    print(f"Tau search results saved to: {csv_path}")
+    print(f"{'='*80}")
+    
+    # Generate tau plots
+    generate_tau_plots(tau_df, output_dir)
+    
+    return tau_df
+
+
+def generate_tau_plots(tau_df, output_dir):
+    """Generate plots showing effect of tau parameter"""
+    
+    print("\n" + "="*80)
+    print("GENERATING TAU PLOTS")
+    print("="*80)
+    
+    plots_dir = output_dir / "plots"
+    plots_dir.mkdir(exist_ok=True)
+    
+    # Filter to converged runs
+    converged_df = tau_df[tau_df['converged'] == True].copy()
+    
+    if len(converged_df) == 0:
+        print("No converged runs for tau search!")
+        return
+    
+    # Plot: Iterations vs Tau for each method
+    print("Creating Tau effect plots for each method...")
+    for method in converged_df['method'].unique():
+        method_df = converged_df[converged_df['method'] == method]
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Group by tau and problem
+        for problem in method_df['problem'].unique():
+            problem_df = method_df[method_df['problem'] == problem]
+            grouped = problem_df.groupby('tau')['iterations'].mean()
+            ax.plot(grouped.index, grouped.values, marker='o', label=problem, linewidth=2, markersize=8)
+        
+        ax.set_xlabel('Tau Value', fontsize=12)
+        ax.set_ylabel('Average Iterations', fontsize=12)
+        ax.set_title(f'{method}: Effect of Tau on Iterations', fontsize=14, fontweight='bold')
+        ax.legend(fontsize=10)
+        ax.grid(True, alpha=0.3)
+        
+        plot_path = plots_dir / f"{method}_tau_effect.png"
+        plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"   Saved: {plot_path.name}")
+    
+    # Combined plot: All methods on one plot
+    print("\nCreating combined tau effect plot...")
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    for method in converged_df['method'].unique():
+        method_df = converged_df[converged_df['method'] == method]
+        grouped = method_df.groupby('tau')['iterations'].mean()
+        ax.plot(grouped.index, grouped.values, marker='o', label=method, linewidth=2, markersize=8)
+    
+    ax.set_xlabel('Tau Value', fontsize=12)
+    ax.set_ylabel('Average Iterations', fontsize=12)
+    ax.set_title('Effect of Tau on Iterations (All Armijo Methods)', fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10, loc='best')
+    ax.grid(True, alpha=0.3)
+    
+    plot_path = plots_dir / "tau_effect_combined.png"
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"   Saved: {plot_path.name}")
+    
+    # Find optimal tau for each method
+    print("\n" + "="*80)
+    print("OPTIMAL TAU VALUES BY METHOD")
+    print("="*80)
+    
+    for method in converged_df['method'].unique():
+        method_df = converged_df[converged_df['method'] == method]
+        grouped = method_df.groupby('tau')['iterations'].mean()
+        optimal_tau = grouped.idxmin()
+        optimal_iters = grouped.min()
+        print(f"{method}: tau = {optimal_tau:.1f} (avg {optimal_iters:.1f} iterations)")
+    
+    print(f"\nAll tau plots saved to: {plots_dir}")
 
 
 def generate_summary_statistics(df, output_dir):
@@ -725,6 +922,7 @@ def generate_summary_statistics(df, output_dir):
                         'c1': best_c1,
                         'c2': None,
                         'alpha': best_alpha,
+                        'tau': TAU,
                         'avg_iterations': best_iters,
                         'num_converged': best_count
                     })
@@ -742,6 +940,7 @@ def generate_summary_statistics(df, output_dir):
                         'c1': best_c1,
                         'c2': best_c2,
                         'alpha': best_alpha,
+                        'tau': None,
                         'avg_iterations': best_iters,
                         'num_converged': best_count
                     })
@@ -782,13 +981,19 @@ def generate_plots(df, output_dir):
             for alpha in sorted(method_df['alpha'].unique()):
                 alpha_df = method_df[method_df['alpha'] == alpha]
                 grouped = alpha_df.groupby('c1')['iterations'].mean()
-                ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+                if len(grouped) > 0:
+                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
             
             ax.set_xlabel('C1 Value', fontsize=12)
             ax.set_ylabel('Average Iterations', fontsize=12)
             ax.set_title(f'{method}: Effect of C1 on Iterations', fontsize=14, fontweight='bold')
             ax.set_xscale('log')
-            ax.legend(fontsize=10)
+            
+            # Only show legend for lines that actually have data
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(fontsize=10)
+            
             ax.grid(True, alpha=0.3)
             
             plot_path = plots_dir / f"{method}_c1_effect.png"
@@ -810,18 +1015,57 @@ def generate_plots(df, output_dir):
             for alpha in sorted(method_df['alpha'].unique()):
                 alpha_df = method_df[method_df['alpha'] == alpha]
                 grouped = alpha_df.groupby('c2')['iterations'].mean()
-                ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+                if len(grouped) > 0:
+                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
             
             ax.set_xlabel('C2 Value', fontsize=12)
             ax.set_ylabel('Average Iterations', fontsize=12)
             ax.set_title(f'{method}: Effect of C2 on Iterations', fontsize=14, fontweight='bold')
-            ax.legend(fontsize=10)
+            
+            # Only show legend for lines that actually have data
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(fontsize=10)
+            
             ax.grid(True, alpha=0.3)
             
             plot_path = plots_dir / f"{method}_c2_effect.png"
             plt.savefig(plot_path, dpi=150, bbox_inches='tight')
             plt.close()
             print(f"   Saved: {plot_path.name}")
+
+    # plot iterations vs c1 for each method (Wolfe)
+    print("\nCreating c1 parameter plots for Wolfe methods...")
+    
+    if len(wolfe_df) > 0:
+        for method in wolfe_df['method'].unique():
+            method_df = wolfe_df[wolfe_df['method'] == method]
+            
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Group by c1 and alpha, plot average iterations
+            for alpha in sorted(method_df['alpha'].unique()):
+                alpha_df = method_df[method_df['alpha'] == alpha]
+                grouped = alpha_df.groupby('c1')['iterations'].mean()
+                if len(grouped) > 0:
+                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+            
+            ax.set_xlabel('C1 Value', fontsize=12)
+            ax.set_ylabel('Average Iterations', fontsize=12)
+            ax.set_title(f'{method}: Effect of C1 on Iterations', fontsize=14, fontweight='bold')
+            ax.set_xscale('log')
+            
+            # Only show legend for lines that actually have data
+            handles, labels = ax.get_legend_handles_labels()
+            if handles:
+                ax.legend(fontsize=10)
+            
+            ax.grid(True, alpha=0.3)
+            
+            plot_path = plots_dir / f"{method}_c1_effect.png"
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"   Saved: {plot_path.name}")        
     
     # plot iterations vs alpha for each method
     print("\nCreating alpha parameter plots for all methods...")
@@ -1114,16 +1358,29 @@ def generate_plots(df, output_dir):
 
 if __name__ == "__main__":
 
+    # Run main parameter search (c1, c2, alpha with fixed tau)
     results_df = parameter_search()
     
+    # Generate summary statistics and plots
+    generate_summary_statistics(results_df, Path("parameter_search_results"))
+    generate_plots(results_df, Path("parameter_search_results"))
+    
     print("\n" + "="*80)
-    print("PARAMETER SEARCH COMPLETE!")
+    print("MAIN PARAMETER SEARCH COMPLETE!")
     print("="*80)
     print(f"\nTotal runs: {len(results_df)}")
     print(f"Converged: {results_df['converged'].sum()}")
     print(f"Failed: {(~results_df['converged']).sum()}")
+    
+    # Run separate tau search
+    tau_results_df = tau_search()
+    
+    print("\n" + "="*80)
+    print("ALL SEARCHES COMPLETE!")
+    print("="*80)
     print("\nCheck the 'parameter_search_results' directory for:")
     print("all_results.csv: Complete results table")
+    print("tau_search_results.csv: Tau-specific search results")
     print("best_parameters.csv: Best parameters for each method")
     print("method_summary.csv: Success rates by method")
     print("plots/: All visualization plots")

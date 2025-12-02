@@ -1,15 +1,15 @@
 method,Success Rate (%),Total Runs
-BFGS_armijo,100.0,200
+BFGS_armijo,99.0,200
 BFGS_wolfe,100.0,1780
-DFP_armijo,95.0,200
+DFP_armijo,88.5,200
 DFP_wolfe,99.43820224719101,1780
 L_BFGS_armijo,100.0,200
 L_BFGS_wolfe,100.0,1780
 Modified_Newton_armijo,100.0,200
 Modified_Newton_wolfe,100.0,1780
-Newton_CG_armijo,95.0,200
+Newton_CG_armijo,66.5,200
 Newton_CG_wolfe,100.0,1780
-Newton_armijo,100.0,200
+Newton_armijo,77.5,200
 Newton_wolfe,88.20224719101124,1780
 SD_armijo,49.5,200
 SD_wolfe,61.23595505617978,1780
