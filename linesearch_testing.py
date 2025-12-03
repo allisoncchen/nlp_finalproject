@@ -7,18 +7,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 import problems as pr
+import signal
 
-K_MAX = 2000
+K_MAX = 2000  # Maximum outer iterations
+K_MAX_LINE_SEARCH = 100  # prevent excessive backtracking
+TRIAL_TIMEOUT = 5 
 TAU = 0.5  # Default tau value
 BETA = 0.0004
 EMIN = 10e-8
+
+# Timeout handling for long-running trials
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException("Trial exceeded time limit")
+
+def run_with_timeout(func, timeout_seconds=TRIAL_TIMEOUT):
+    """
+    Run a function with a timeout. If it takes longer than timeout_seconds,
+    raise TimeoutException and allow the script to continue.
+    """
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout_seconds)
+    try:
+        result = func()
+        signal.alarm(0)  # Cancel alarm if completed
+        return result, False  # result, timed_out
+    except TimeoutException:
+        signal.alarm(0)  # Cancel alarm
+        return None, True  # None, timed_out
 
 # Armijo version that takes c1 and tau
 def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1, tau): 
     i = 0 
     a = alpha_init 
     
-    while i < K_MAX: 
+    while i < K_MAX_LINE_SEARCH:  # Changed from K_MAX to K_MAX_LINE_SEARCH 
         new_val = func(x + (a * p))
         modeled_val = func(x) + (c1 * a * float(np.dot(gradient(x).T, p)))
 
@@ -36,14 +61,14 @@ def Armijo_backtracking_param(x, func, gradient, p, alpha_init, c1, tau):
 
 
 # wolfe now takes c1 and c2
-def Wolfe_linesearch_param(x, p, func, gradient, c1, c2): 
+def Wolfe_linesearch_param(x, p, func, gradient, alpha_init, c1, c2): 
 
     al = 0 
     au = float('inf') 
-    a = 1
+    a = alpha_init
     i = 0
 
-    while i < K_MAX:
+    while i < K_MAX_LINE_SEARCH:  # Changed from K_MAX to K_MAX_LINE_SEARCH
         new_val = func(x + (a * p))
         modeled_val = func(x) + (c1 * a * float(np.dot(gradient(x).T, p)))
         
@@ -97,7 +122,7 @@ def steepest_descent_param(x, func, gradient, armijo, c1, c2, start_alpha, tau):
         if armijo == True: 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, alpha, c1, tau)
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, alpha, c1, c2)
 
         total_func_evals += evals
 
@@ -145,7 +170,7 @@ def newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, start_alpha
         if armijo == True: 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, start_alpha, c1, c2)
         
         total_func_evals += evals
 
@@ -232,7 +257,7 @@ def modified_newtons_method_param(x, func, gradient, hessian, armijo, c1, c2, st
         if armijo == True: 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau) # Choose using Armijo backtracking line search 
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2) # Choose using Wolfe line search 
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, start_alpha, c1, c2) # Choose using Wolfe line search 
         
         total_func_evals += evals
 
@@ -275,7 +300,7 @@ def BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha, tau):
         if armijo == True: 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, start_alpha, c1, c2)
 
         total_func_evals += evals
 
@@ -329,7 +354,7 @@ def DFP_param(x, func, gradient, armijo, c1, c2, start_alpha, tau):
         if (armijo): 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, start_alpha, c1, c2)
 
         total_func_evals += evals
 
@@ -419,7 +444,7 @@ def L_BFGS_param(x, func, gradient, armijo, c1, c2, start_alpha, tau):
         if armijo == True: 
             alpha, evals = Armijo_backtracking_param(cur_vector, func, gradient, p, start_alpha, c1, tau)
         else: 
-            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, c1, c2)
+            alpha, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient, start_alpha, c1, c2)
 
         total_func_evals += evals
 
@@ -497,7 +522,7 @@ def Newton_CG_param(x, func, gradient_func, hessian, armijo, c1, c2, start_alpha
         if armijo: 
             alpha_k, evals = Armijo_backtracking_param(cur_vector, func, gradient_func, p, start_alpha, c1, tau)
         else: 
-            alpha_k, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient_func, c1, c2)
+            alpha_k, evals = Wolfe_linesearch_param(cur_vector, p, func, gradient_func, start_alpha, c1, c2)
 
         total_func_evals += evals
 
@@ -604,32 +629,60 @@ def parameter_search():
                 print(f"    [{current_run}/{total_runs}] Testing c1={c1:.4f}, c2={c2:.2f}, alpha={alpha:.1f}...", end=" ")
                 
                 try:
-                    # Run the optimization
+                    # Run the optimization with timeout
                     start_time = time.time()
-                    f_final, iters, grad_norm, converged, func_evals = method_func(problem, c1, c2, alpha, tau)
+                    
+                    # Wrap the method call in timeout
+                    result_data, timed_out = run_with_timeout(
+                        lambda: method_func(problem, c1, c2, alpha, tau),
+                        timeout_seconds=TRIAL_TIMEOUT
+                    )
+                    
                     elapsed_time = time.time() - start_time
                     
-                    # Store results
-                    result = {
-                        'problem': problem['name'],
-                        'method': method_name,
-                        'c1': c1,
-                        'c2': c2 if not is_armijo else None,
-                        'alpha': alpha,
-                        'tau': tau if is_armijo else None,
-                        'iterations': iters,
-                        'converged': converged,
-                        'f_final': f_final,
-                        'grad_norm': grad_norm,
-                        'func_evals': func_evals,
-                        'time': elapsed_time,
-                        'linesearch': 'Armijo' if is_armijo else 'Wolfe'
-                    }
+                    if timed_out:
+                        print(f"TIMEOUT ({TRIAL_TIMEOUT}s) - marked as failed")
+                        result = {
+                            'problem': problem['name'],
+                            'method': method_name,
+                            'c1': c1,
+                            'c2': c2 if not is_armijo else None,
+                            'alpha': alpha,
+                            'tau': tau if is_armijo else None,
+                            'iterations': K_MAX,
+                            'converged': False,
+                            'f_final': None,
+                            'grad_norm': None,
+                            'func_evals': None,
+                            'time': elapsed_time,
+                            'linesearch': 'Armijo' if is_armijo else 'Wolfe',
+                            'timeout': True
+                        }
+                    else:
+                        f_final, iters, grad_norm, converged, func_evals = result_data
+                        
+                        # Store results
+                        result = {
+                            'problem': problem['name'],
+                            'method': method_name,
+                            'c1': c1,
+                            'c2': c2 if not is_armijo else None,
+                            'alpha': alpha,
+                            'tau': tau if is_armijo else None,
+                            'iterations': iters,
+                            'converged': converged,
+                            'f_final': f_final,
+                            'grad_norm': grad_norm,
+                            'func_evals': func_evals,
+                            'time': elapsed_time,
+                            'linesearch': 'Armijo' if is_armijo else 'Wolfe',
+                            'timeout': False
+                        }
+                        
+                        status = "Converged" if converged else "Failed"
+                        print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
                     
                     all_results.append(result)
-                    
-                    status = "Converged" if converged else "Failed"
-                    print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
                     
                 except Exception as e:
                     print(f"✗ Error: {str(e)}")
@@ -664,20 +717,22 @@ def parameter_search():
     return df
 
 
-def tau_search():
+def tau_search(main_results_df):
     """
     Separate focused search varying only tau
-    Uses default values: c1=1e-2, c2=0.9, alpha=1.0
+    Uses OPTIMAL c1 and alpha values from main parameter search for each method and problem
     """
     
     print("\n\n" + "="*80)
     print("STARTING TAU PARAMETER SEARCH (Armijo methods only)")
     print("="*80)
+    print("Using optimal c1 and alpha from main parameter search for each method+problem")
     
-    # Default parameters
-    c1_default = 1e-2
-    c2_default = 0.9
-    alpha_default = 1.0
+    # Filter to converged Armijo runs from main search
+    converged_armijo = main_results_df[
+        (main_results_df['converged'] == True) & 
+        (main_results_df['linesearch'] == 'Armijo')
+    ].copy()
     
     # Tau values to test
     tau_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -701,17 +756,6 @@ def tau_search():
         }
     ]
     
-    # Only Armijo methods (tau doesn't affect Wolfe)
-    methods = [
-        ("SD_armijo", lambda p, tau: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
-        ("Newton_armijo", lambda p, tau: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
-        ("Modified_Newton_armijo", lambda p, tau: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
-        ("BFGS_armijo", lambda p, tau: BFGS_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
-        ("DFP_armijo", lambda p, tau: DFP_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
-        ("L_BFGS_armijo", lambda p, tau: L_BFGS_param(p["x0"], p["func"], p["grad"], True, c1_default, c2_default, alpha_default, tau)),
-        ("Newton_CG_armijo", lambda p, tau: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1_default, c2_default, alpha_default, tau)),
-    ]
-    
     # Create output directory
     output_dir = Path("parameter_search_results")
     output_dir.mkdir(exist_ok=True)
@@ -720,8 +764,6 @@ def tau_search():
     tau_results = []
     
     print(f"Testing {len(tau_values)} tau values: {tau_values}")
-    print(f"Default parameters: c1={c1_default}, alpha={alpha_default}")
-    print(f"Problems: {len(problems)}, Methods: {len(methods)}")
     print("-" * 80)
     
     for problem in problems:
@@ -729,47 +771,124 @@ def tau_search():
         print(f"Testing Problem: {problem['name']}")
         print(f"{'='*80}")
         
-        for method_name, method_func in methods:
+        # Filter data for this problem
+        problem_data = converged_armijo[converged_armijo['problem'] == problem['name']]
+        
+        # Define methods
+        armijo_methods = [
+            "SD_armijo", "Newton_armijo", "Modified_Newton_armijo", 
+            "BFGS_armijo", "DFP_armijo", "L_BFGS_armijo", "Newton_CG_armijo"
+        ]
+        
+        for method_name in armijo_methods:
             print(f"\n  Method: {method_name}")
+            
+            # Find optimal c1 and alpha for this method on this problem
+            method_data = problem_data[problem_data['method'] == method_name]
+            
+            if len(method_data) == 0:
+                print(f"    No converged data for {method_name} on {problem['name']}, skipping")
+                continue
+            
+            # Find parameters that gave minimum iterations
+            grouped = method_data.groupby(['c1', 'alpha'])['iterations'].mean()
+            best_params = grouped.idxmin()
+            c1_optimal = best_params[0]
+            alpha_optimal = best_params[1]
+            c2_default = 0.9  # Not used in Armijo but needed for function signature
+            
+            print(f"    Using optimal: c1={c1_optimal:.4f}, alpha={alpha_optimal:.2f}")
+            
+            # Create method lambda with optimal parameters
+            if method_name == "SD_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: steepest_descent_param(
+                    p["x0"], p["func"], p["grad"], True, c1, c2_default, alpha, tau)
+            elif method_name == "Newton_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: newtons_method_param(
+                    p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2_default, alpha, tau)
+            elif method_name == "Modified_Newton_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: modified_newtons_method_param(
+                    p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2_default, alpha, tau)
+            elif method_name == "BFGS_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: BFGS_param(
+                    p["x0"], p["func"], p["grad"], True, c1, c2_default, alpha, tau)
+            elif method_name == "DFP_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: DFP_param(
+                    p["x0"], p["func"], p["grad"], True, c1, c2_default, alpha, tau)
+            elif method_name == "L_BFGS_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: L_BFGS_param(
+                    p["x0"], p["func"], p["grad"], True, c1, c2_default, alpha, tau)
+            elif method_name == "Newton_CG_armijo":
+                method_func = lambda p, tau, c1=c1_optimal, alpha=alpha_optimal: Newton_CG_param(
+                    p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2_default, alpha, tau)
+            else:
+                continue
             
             for tau in tau_values:
                 print(f"    Testing tau={tau:.1f}...", end=" ")
                 
                 try:
-                    # Run the optimization
+                    # Run the optimization with timeout
                     start_time = time.time()
-                    f_final, iters, grad_norm, converged, func_evals = method_func(problem, tau)
+                    
+                    # Wrap the method call in timeout
+                    result_data, timed_out = run_with_timeout(
+                        lambda: method_func(problem, tau),
+                        timeout_seconds=TRIAL_TIMEOUT
+                    )
+                    
                     elapsed_time = time.time() - start_time
                     
-                    # Store results
-                    result = {
-                        'problem': problem['name'],
-                        'method': method_name,
-                        'c1': c1_default,
-                        'c2': None,
-                        'alpha': alpha_default,
-                        'tau': tau,
-                        'iterations': iters,
-                        'converged': converged,
-                        'f_final': f_final,
-                        'grad_norm': grad_norm,
-                        'func_evals': func_evals,
-                        'time': elapsed_time,
-                    }
+                    if timed_out:
+                        print(f"⏱ TIMEOUT ({TRIAL_TIMEOUT}s) - marked as failed")
+                        result = {
+                            'problem': problem['name'],
+                            'method': method_name,
+                            'c1': c1_optimal,
+                            'c2': None,
+                            'alpha': alpha_optimal,
+                            'tau': tau,
+                            'iterations': K_MAX,
+                            'converged': False,
+                            'f_final': None,
+                            'grad_norm': None,
+                            'func_evals': None,
+                            'time': elapsed_time,
+                            'timeout': True
+                        }
+                    else:
+                        f_final, iters, grad_norm, converged, func_evals = result_data
+                        
+                        # Store results
+                        result = {
+                            'problem': problem['name'],
+                            'method': method_name,
+                            'c1': c1_optimal,
+                            'c2': None,
+                            'alpha': alpha_optimal,
+                            'tau': tau,
+                            'iterations': iters,
+                            'converged': converged,
+                            'f_final': f_final,
+                            'grad_norm': grad_norm,
+                            'func_evals': func_evals,
+                            'time': elapsed_time,
+                            'timeout': False
+                        }
+                        
+                        status = "Converged" if converged else "Failed"
+                        print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
                     
                     tau_results.append(result)
-                    
-                    status = "Converged" if converged else "Failed"
-                    print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
                     
                 except Exception as e:
                     print(f"✗ Error: {str(e)}")
                     result = {
                         'problem': problem['name'],
                         'method': method_name,
-                        'c1': c1_default,
+                        'c1': c1_optimal,
                         'c2': None,
-                        'alpha': alpha_default,
+                        'alpha': alpha_optimal,
                         'tau': tau,
                         'iterations': K_MAX,
                         'converged': False,
@@ -967,7 +1086,7 @@ def generate_plots(df, output_dir):
     # Filter to converged runs for most plots
     converged_df = df[df['converged'] == True].copy()
     
-    # plot iterations vs C1 for each method (Armijo)
+    # plot iterations vs C1 for each method (Armijo) - SEPARATE BY PROBLEM
     print("Creating C1 parameter plots for Armijo methods...")
     armijo_df = converged_df[converged_df['linesearch'] == 'Armijo']
     
@@ -975,33 +1094,39 @@ def generate_plots(df, output_dir):
         for method in armijo_df['method'].unique():
             method_df = armijo_df[armijo_df['method'] == method]
             
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Group by c1 and alpha, plot average iterations
-            for alpha in sorted(method_df['alpha'].unique()):
-                alpha_df = method_df[method_df['alpha'] == alpha]
-                grouped = alpha_df.groupby('c1')['iterations'].mean()
-                if len(grouped) > 0:
-                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
-            
-            ax.set_xlabel('C1 Value', fontsize=12)
-            ax.set_ylabel('Average Iterations', fontsize=12)
-            ax.set_title(f'{method}: Effect of C1 on Iterations', fontsize=14, fontweight='bold')
-            ax.set_xscale('log')
-            
-            # Only show legend for lines that actually have data
-            handles, labels = ax.get_legend_handles_labels()
-            if handles:
-                ax.legend(fontsize=10)
-            
-            ax.grid(True, alpha=0.3)
-            
-            plot_path = plots_dir / f"{method}_c1_effect.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")
+            # Create separate plot for each problem
+            for problem in sorted(method_df['problem'].unique()):
+                problem_df = method_df[method_df['problem'] == problem]
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                # Group by c1 and alpha, plot average iterations
+                for alpha in sorted(problem_df['alpha'].unique()):
+                    alpha_df = problem_df[problem_df['alpha'] == alpha]
+                    grouped = alpha_df.groupby('c1')['iterations'].mean()
+                    if len(grouped) > 0:
+                        ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+                
+                ax.set_xlabel('C1 Value', fontsize=12)
+                ax.set_ylabel('Average Iterations', fontsize=12)
+                ax.set_title(f'{method}: Effect of C1 on Iterations ({problem})', fontsize=14, fontweight='bold')
+                ax.set_xscale('log')
+                
+                # Only show legend for lines that actually have data
+                handles, labels = ax.get_legend_handles_labels()
+                if handles:
+                    ax.legend(fontsize=10)
+                
+                ax.grid(True, alpha=0.3)
+                
+                # Clean problem name for filename
+                problem_clean = problem.replace('_', '').replace(' ', '')
+                plot_path = plots_dir / f"{method}_c1_effect_{problem_clean}.png"
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"   Saved: {plot_path.name}")
     
-    # plot iterations vs C2 for each method (Wolfe)
+    # plot iterations vs C2 for each method (Wolfe) - SEPARATE BY PROBLEM
     print("\n Creating C2 parameter plots for Wolfe methods...")
     wolfe_df = converged_df[converged_df['linesearch'] == 'Wolfe']
     
@@ -1009,63 +1134,75 @@ def generate_plots(df, output_dir):
         for method in wolfe_df['method'].unique():
             method_df = wolfe_df[wolfe_df['method'] == method]
             
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Group by c2 and alpha, plot average iterations
-            for alpha in sorted(method_df['alpha'].unique()):
-                alpha_df = method_df[method_df['alpha'] == alpha]
-                grouped = alpha_df.groupby('c2')['iterations'].mean()
-                if len(grouped) > 0:
-                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
-            
-            ax.set_xlabel('C2 Value', fontsize=12)
-            ax.set_ylabel('Average Iterations', fontsize=12)
-            ax.set_title(f'{method}: Effect of C2 on Iterations', fontsize=14, fontweight='bold')
-            
-            # Only show legend for lines that actually have data
-            handles, labels = ax.get_legend_handles_labels()
-            if handles:
-                ax.legend(fontsize=10)
-            
-            ax.grid(True, alpha=0.3)
-            
-            plot_path = plots_dir / f"{method}_c2_effect.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")
+            # Create separate plot for each problem
+            for problem in sorted(method_df['problem'].unique()):
+                problem_df = method_df[method_df['problem'] == problem]
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                # Group by c2 and alpha, plot average iterations
+                for alpha in sorted(problem_df['alpha'].unique()):
+                    alpha_df = problem_df[problem_df['alpha'] == alpha]
+                    grouped = alpha_df.groupby('c2')['iterations'].mean()
+                    if len(grouped) > 0:
+                        ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+                
+                ax.set_xlabel('C2 Value', fontsize=12)
+                ax.set_ylabel('Average Iterations', fontsize=12)
+                ax.set_title(f'{method}: Effect of C2 on Iterations ({problem})', fontsize=14, fontweight='bold')
+                
+                # Only show legend for lines that actually have data
+                handles, labels = ax.get_legend_handles_labels()
+                if handles:
+                    ax.legend(fontsize=10)
+                
+                ax.grid(True, alpha=0.3)
+                
+                # Clean problem name for filename
+                problem_clean = problem.replace('_', '').replace(' ', '')
+                plot_path = plots_dir / f"{method}_c2_effect_{problem_clean}.png"
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"   Saved: {plot_path.name}")
 
-    # plot iterations vs c1 for each method (Wolfe)
+    # plot iterations vs c1 for each method (Wolfe) - SEPARATE BY PROBLEM
     print("\nCreating c1 parameter plots for Wolfe methods...")
     
     if len(wolfe_df) > 0:
         for method in wolfe_df['method'].unique():
             method_df = wolfe_df[wolfe_df['method'] == method]
             
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Group by c1 and alpha, plot average iterations
-            for alpha in sorted(method_df['alpha'].unique()):
-                alpha_df = method_df[method_df['alpha'] == alpha]
-                grouped = alpha_df.groupby('c1')['iterations'].mean()
-                if len(grouped) > 0:
-                    ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
-            
-            ax.set_xlabel('C1 Value', fontsize=12)
-            ax.set_ylabel('Average Iterations', fontsize=12)
-            ax.set_title(f'{method}: Effect of C1 on Iterations', fontsize=14, fontweight='bold')
-            ax.set_xscale('log')
-            
-            # Only show legend for lines that actually have data
-            handles, labels = ax.get_legend_handles_labels()
-            if handles:
-                ax.legend(fontsize=10)
-            
-            ax.grid(True, alpha=0.3)
-            
-            plot_path = plots_dir / f"{method}_c1_effect.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")        
+            # Create separate plot for each problem
+            for problem in sorted(method_df['problem'].unique()):
+                problem_df = method_df[method_df['problem'] == problem]
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                # Group by c1 and alpha, plot average iterations
+                for alpha in sorted(problem_df['alpha'].unique()):
+                    alpha_df = problem_df[problem_df['alpha'] == alpha]
+                    grouped = alpha_df.groupby('c1')['iterations'].mean()
+                    if len(grouped) > 0:
+                        ax.plot(grouped.index, grouped.values, marker='o', label=f'alpha={alpha}', linewidth=2)
+                
+                ax.set_xlabel('C1 Value', fontsize=12)
+                ax.set_ylabel('Average Iterations', fontsize=12)
+                ax.set_title(f'{method}: Effect of C1 on Iterations ({problem})', fontsize=14, fontweight='bold')
+                ax.set_xscale('log')
+                
+                # Only show legend for lines that actually have data
+                handles, labels = ax.get_legend_handles_labels()
+                if handles:
+                    ax.legend(fontsize=10)
+                
+                ax.grid(True, alpha=0.3)
+                
+                # Clean problem name for filename
+                problem_clean = problem.replace('_', '').replace(' ', '')
+                plot_path = plots_dir / f"{method}_c1_effect_{problem_clean}.png"
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"   Saved: {plot_path.name}")        
     
     # plot iterations vs alpha for each method
     print("\nCreating alpha parameter plots for all methods...")
@@ -1074,13 +1211,16 @@ def generate_plots(df, output_dir):
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Group by alpha and plot avg iterations
-        grouped = method_df.groupby('alpha')['iterations'].mean()
-        ax.plot(grouped.index, grouped.values, marker='o', linewidth=2, markersize=8)
+        # Group by alpha and problem, plot average iterations
+        for problem in sorted(method_df['problem'].unique()):
+            problem_df = method_df[method_df['problem'] == problem]
+            grouped = problem_df.groupby('alpha')['iterations'].mean()
+            ax.plot(grouped.index, grouped.values, marker='o', label=problem, linewidth=2, markersize=8)
         
         ax.set_xlabel('Initial Alpha Value', fontsize=12)
         ax.set_ylabel('Average Iterations', fontsize=12)
         ax.set_title(f'{method}: Effect of Initial Alpha on Iterations', fontsize=14, fontweight='bold')
+        ax.legend(fontsize=10)
         ax.grid(True, alpha=0.3)
         
         plot_path = plots_dir / f"{method}_alpha_effect.png"
@@ -1088,52 +1228,64 @@ def generate_plots(df, output_dir):
         plt.close()
         print(f"   Saved: {plot_path.name}")
     
-    # C1 vs C2 heatmap for Wolfe methods (average iterations)
+    # C1 vs C2 heatmap for Wolfe methods (average iterations) - SIDE BY SIDE BY PROBLEM
     print("\ncreating heatmaps for Wolfe methods...")
     for method in wolfe_df['method'].unique():
         method_df = wolfe_df[wolfe_df['method'] == method]
         
-        # Average over all alpha values
-        pivot_data = method_df.pivot_table(
-            values='iterations', 
-            index='c2', 
-            columns='c1', 
-            aggfunc='mean'
-        )
+        # Create figure with 2 horizontal subplots
+        fig, axes = plt.subplots(1, 2, figsize=(18, 7))
         
-        if not pivot_data.empty:
-            fig, ax = plt.subplots(figsize=(10, 8))
+        problems = sorted(method_df['problem'].unique())
+        
+        for idx, problem in enumerate(problems):
+            problem_df = method_df[method_df['problem'] == problem]
             
-            # Create heatmap using imshow
-            im = ax.imshow(pivot_data.values, cmap='YlOrRd_r', aspect='auto')
+            # Average over all alpha values for this problem
+            pivot_data = problem_df.pivot_table(
+                values='iterations', 
+                index='c2', 
+                columns='c1', 
+                aggfunc='mean'
+            )
             
-            # Set ticks
-            ax.set_xticks(np.arange(len(pivot_data.columns)))
-            ax.set_yticks(np.arange(len(pivot_data.index)))
-            ax.set_xticklabels(pivot_data.columns)
-            ax.set_yticklabels(pivot_data.index)
-            
-            # Rotate the tick labels for better readability
-            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-            
-            # Add colorbar
-            cbar = plt.colorbar(im, ax=ax)
-            cbar.set_label('Average Iterations', rotation=270, labelpad=20)
-            
-            # Add text annotations
-            for i in range(len(pivot_data.index)):
-                for j in range(len(pivot_data.columns)):
-                    text = ax.text(j, i, f'{pivot_data.values[i, j]:.1f}',
-                                 ha="center", va="center", color="black", fontsize=10)
-            
-            ax.set_title(f'{method}: C1 vs C2 Heatmap (Average Iterations)', fontsize=14, fontweight='bold')
-            ax.set_xlabel('C1 Value', fontsize=12)
-            ax.set_ylabel('C2 Value', fontsize=12)
-            
-            plot_path = plots_dir / f"{method}_c1_c2_heatmap.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")
+            if not pivot_data.empty:
+                ax = axes[idx]
+                
+                # Create heatmap using imshow - REVERSED colormap (red = bad/high iterations)
+                im = ax.imshow(pivot_data.values, cmap='YlOrRd', aspect='auto')
+                
+                # Set ticks
+                ax.set_xticks(np.arange(len(pivot_data.columns)))
+                ax.set_yticks(np.arange(len(pivot_data.index)))
+                ax.set_xticklabels(pivot_data.columns)
+                ax.set_yticklabels(pivot_data.index)
+                
+                # Rotate the tick labels for better readability
+                plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+                
+                # Add colorbar
+                cbar = plt.colorbar(im, ax=ax)
+                cbar.set_label('Average Iterations', rotation=270, labelpad=20)
+                
+                # Add text annotations
+                for i in range(len(pivot_data.index)):
+                    for j in range(len(pivot_data.columns)):
+                        text = ax.text(j, i, f'{pivot_data.values[i, j]:.1f}',
+                                     ha="center", va="center", color="black", fontsize=8)
+                
+                ax.set_title(f'{problem}', fontsize=12, fontweight='bold')
+                ax.set_xlabel('C1 Value', fontsize=11)
+                ax.set_ylabel('C2 Value', fontsize=11)
+        
+        # Overall title
+        fig.suptitle(f'{method}: C1 vs C2 Heatmap (Average Iterations)', fontsize=14, fontweight='bold', y=1.00)
+        plt.tight_layout()
+        
+        plot_path = plots_dir / f"{method}_c1_c2_heatmap.png"
+        plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"   Saved: {plot_path.name}")
     
     # Success rate heatmap
     print("\nCreating success rate plots...")
@@ -1221,139 +1373,210 @@ def generate_plots(df, output_dir):
                 plt.close()
                 print(f"   Saved: {plot_path.name}")
     
-    # Comparison plot: Best parameters across methods
-    print("\nCreating method comparison plots...")
+    # Optimal parameters plot for Wolfe methods - SEPARATE BY PROBLEM
+    print("\nCreating optimal parameter plots for Wolfe methods...")
+    wolfe_methods = [m for m in converged_df['method'].unique() if 'wolfe' in m.lower()]
     
-    # Average iterations by method (for converged runs)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    method_stats = converged_df.groupby('method')['iterations'].agg(['mean', 'std'])
-    method_stats = method_stats.sort_values('mean')
+    if len(wolfe_methods) > 0:
+        # Create separate plot for each problem
+        for problem in sorted(converged_df['problem'].unique()):
+            problem_df = converged_df[converged_df['problem'] == problem]
+            
+            # Get best parameters for each Wolfe method for this problem
+            wolfe_best_params = []
+            for method in wolfe_methods:
+                method_df = problem_df[problem_df['method'] == method]
+                if len(method_df) > 0:
+                    grouped = method_df.groupby(['c1', 'c2', 'alpha'])['iterations'].mean()
+                    best_idx = grouped.idxmin()
+                    wolfe_best_params.append({
+                        'method': method,
+                        'c1': best_idx[0],
+                        'c2': best_idx[1],
+                        'alpha': best_idx[2]
+                    })
+            
+            if len(wolfe_best_params) > 0:
+                # Create figure with 3 subplots
+                fig, axes = plt.subplots(3, 1, figsize=(12, 12))
+                
+                methods = [p['method'] for p in wolfe_best_params]
+                c1_values = [p['c1'] for p in wolfe_best_params]
+                c2_values = [p['c2'] for p in wolfe_best_params]
+                alpha_values = [p['alpha'] for p in wolfe_best_params]
+                
+                x_pos = np.arange(len(methods))
+                
+                # optimal C1
+                axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
+                axes[0].set_xticks(x_pos)
+                axes[0].set_xticklabels(methods, rotation=45, ha='right')
+                axes[0].set_ylabel('Optimal C1', fontsize=12)
+                axes[0].set_yscale('log')
+                axes[0].set_title(f'Optimal C1 Parameter by Method - Wolfe ({problem})', fontsize=14, fontweight='bold')
+                axes[0].grid(True, alpha=0.3, axis='y')
+                
+                # optimal C2
+                axes[1].bar(x_pos, c2_values, color='lightgreen', edgecolor='darkgreen', linewidth=1.5)
+                axes[1].set_xticks(x_pos)
+                axes[1].set_xticklabels(methods, rotation=45, ha='right')
+                axes[1].set_ylabel('Optimal C2', fontsize=12)
+                axes[1].set_title(f'Optimal C2 Parameter by Method - Wolfe ({problem})', fontsize=14, fontweight='bold')
+                axes[1].grid(True, alpha=0.3, axis='y')
+                
+                # optimal alpha
+                axes[2].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
+                axes[2].set_xticks(x_pos)
+                axes[2].set_xticklabels(methods, rotation=45, ha='right')
+                axes[2].set_ylabel('Optimal Alpha', fontsize=12)
+                axes[2].set_title(f'Optimal Initial Alpha by Method - Wolfe ({problem})', fontsize=14, fontweight='bold')
+                axes[2].grid(True, alpha=0.3, axis='y')
+                
+                plt.tight_layout()
+                # Clean problem name for filename
+                problem_clean = problem.replace('_', '').replace(' ', '')
+                plot_path = plots_dir / f"optimal_params_wolfe_{problem_clean}.png"
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"   Saved: {plot_path.name}")
     
-    y_pos = np.arange(len(method_stats))
-    ax.barh(y_pos, method_stats['mean'], xerr=method_stats['std'], 
-           capsize=5, color='skyblue', edgecolor='navy', linewidth=1.5)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(method_stats.index, fontsize=10)
-    ax.set_xlabel('Average Iterations (Converged Runs)', fontsize=12)
-    ax.set_title('Method Performance Comparison', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3, axis='x')
+    # Optimal parameters plot for Armijo methods - SEPARATE BY PROBLEM
+    armijo_methods = [m for m in converged_df['method'].unique() if 'armijo' in m.lower()]
     
+    if len(armijo_methods) > 0:
+        # Create separate plot for each problem
+        for problem in sorted(converged_df['problem'].unique()):
+            problem_df = converged_df[converged_df['problem'] == problem]
+            
+            # Get best parameters for each Armijo method for this problem
+            armijo_best_params = []
+            for method in armijo_methods:
+                method_df = problem_df[problem_df['method'] == method]
+                if len(method_df) > 0:
+                    grouped = method_df.groupby(['c1', 'alpha'])['iterations'].mean()
+                    best_idx = grouped.idxmin()
+                    armijo_best_params.append({
+                        'method': method,
+                        'c1': best_idx[0],
+                        'alpha': best_idx[1]
+                    })
+            
+            if len(armijo_best_params) > 0:
+                # Create figure with 2 subplots (vertically stacked)
+                fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+                
+                methods = [p['method'] for p in armijo_best_params]
+                c1_values = [p['c1'] for p in armijo_best_params]
+                alpha_values = [p['alpha'] for p in armijo_best_params]
+                
+                x_pos = np.arange(len(methods))
+                
+                # optimal C1
+                axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
+                axes[0].set_xticks(x_pos)
+                axes[0].set_xticklabels(methods, rotation=45, ha='right')
+                axes[0].set_ylabel('Optimal C1', fontsize=12)
+                axes[0].set_yscale('log')
+                axes[0].set_title(f'Optimal C1 Parameter by Method - Armijo ({problem})', fontsize=14, fontweight='bold')
+                axes[0].grid(True, alpha=0.3, axis='y')
+                
+                # alpha
+                axes[1].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
+                axes[1].set_xticks(x_pos)
+                axes[1].set_xticklabels(methods, rotation=45, ha='right')
+                axes[1].set_ylabel('Optimal Alpha', fontsize=12)
+                axes[1].set_title(f'Optimal Initial Alpha by Method - Armijo ({problem})', fontsize=14, fontweight='bold')
+                axes[1].grid(True, alpha=0.3, axis='y')
+                
+                plt.tight_layout()
+                # Clean problem name for filename
+                problem_clean = problem.replace('_', '').replace(' ', '')
+                plot_path = plots_dir / f"optimal_params_armijo_{problem_clean}.png"
+                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                plt.close()
+                print(f"   Saved: {plot_path.name}")
+    
+    print(f"\nAll plots saved to: {plots_dir}")
+
+
+def generate_final_method_comparison(main_results_df, tau_results_df, output_dir):
+    """
+    Generate final method comparison plot using OPTIMAL parameters:
+    - Wolfe methods: Best (c1, c2, alpha) from main search
+    - Armijo methods: Best (c1, alpha) from main search + Best tau from tau search
+    """
+    
+    print("\n" + "="*80)
+    print("GENERATING FINAL METHOD COMPARISON PLOT")
+    print("="*80)
+    print("Using optimal parameters from all searches")
+    
+    plots_dir = output_dir / "plots"
+    plots_dir.mkdir(exist_ok=True)
+    
+    # Filter to converged runs
+    converged_main = main_results_df[main_results_df['converged'] == True].copy()
+    converged_tau = tau_results_df[tau_results_df['converged'] == True].copy()
+    
+    # Create vertically stacked subplots
+    fig, axes = plt.subplots(2, 1, figsize=(12, 12))
+    
+    problems = sorted(converged_main['problem'].unique())
+    
+    for idx, problem in enumerate(problems):
+        ax = axes[idx]
+        
+        # Dictionary to store optimal iterations for each method
+        method_optimal_iters = {}
+        
+        # Get all methods
+        all_methods = converged_main['method'].unique()
+        
+        for method in all_methods:
+            if 'armijo' in method.lower():
+                # For Armijo: Use best tau from tau search (which already uses optimal c1, alpha)
+                tau_method_data = converged_tau[
+                    (converged_tau['problem'] == problem) &
+                    (converged_tau['method'] == method)
+                ]
+                
+                if len(tau_method_data) > 0:
+                    # Find minimum iterations across all tau values
+                    optimal_iters = tau_method_data['iterations'].min()
+                    method_optimal_iters[method] = optimal_iters
+            else:
+                # For Wolfe: Use best (c1, c2, alpha) from main search
+                main_method_data = converged_main[
+                    (converged_main['problem'] == problem) &
+                    (converged_main['method'] == method)
+                ]
+                
+                if len(main_method_data) > 0:
+                    # Group by c1, c2, alpha and find minimum
+                    grouped = main_method_data.groupby(['c1', 'c2', 'alpha'])['iterations'].mean()
+                    optimal_iters = grouped.min()
+                    method_optimal_iters[method] = optimal_iters
+        
+        # Sort and plot
+        if len(method_optimal_iters) > 0:
+            method_comparison = pd.Series(method_optimal_iters).sort_values()
+            
+            y_pos = np.arange(len(method_comparison))
+            ax.barh(y_pos, method_comparison.values, 
+                   color='skyblue', edgecolor='navy', linewidth=1.5)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(method_comparison.index, fontsize=10)
+            ax.set_xlabel('Iterations (Optimal Parameters)', fontsize=12)
+            ax.set_title(f'Method Performance Comparison - {problem}', fontsize=13, fontweight='bold')
+            ax.grid(True, alpha=0.3, axis='x')
+    
+    plt.tight_layout()
     plot_path = plots_dir / "method_comparison.png"
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"   Saved: {plot_path.name}")
-    
-    # Optimal parameters plot for Wolfe methods
-    wolfe_methods = [m for m in converged_df['method'].unique() if 'wolfe' in m.lower()]
-    
-    if len(wolfe_methods) > 0:
-        # Get best parameters for each Wolfe method
-        wolfe_best_params = []
-        for method in wolfe_methods:
-            method_df = converged_df[converged_df['method'] == method]
-            if len(method_df) > 0:
-                grouped = method_df.groupby(['c1', 'c2', 'alpha'])['iterations'].mean()
-                best_idx = grouped.idxmin()
-                wolfe_best_params.append({
-                    'method': method,
-                    'c1': best_idx[0],
-                    'c2': best_idx[1],
-                    'alpha': best_idx[2]
-                })
-        
-        if len(wolfe_best_params) > 0:
-            # Create figure with 3 subplots
-            fig, axes = plt.subplots(3, 1, figsize=(12, 12))
-            
-            methods = [p['method'] for p in wolfe_best_params]
-            c1_values = [p['c1'] for p in wolfe_best_params]
-            c2_values = [p['c2'] for p in wolfe_best_params]
-            alpha_values = [p['alpha'] for p in wolfe_best_params]
-            
-            x_pos = np.arange(len(methods))
-            
-            # optimal C1
-            axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
-            axes[0].set_xticks(x_pos)
-            axes[0].set_xticklabels(methods, rotation=45, ha='right')
-            axes[0].set_ylabel('Optimal C1', fontsize=12)
-            axes[0].set_yscale('log')
-            axes[0].set_title('Optimal C1 Parameter by Method (Wolfe)', fontsize=14, fontweight='bold')
-            axes[0].grid(True, alpha=0.3, axis='y')
-            
-            # optimal C2
-            axes[1].bar(x_pos, c2_values, color='lightgreen', edgecolor='darkgreen', linewidth=1.5)
-            axes[1].set_xticks(x_pos)
-            axes[1].set_xticklabels(methods, rotation=45, ha='right')
-            axes[1].set_ylabel('Optimal C2', fontsize=12)
-            axes[1].set_title('Optimal C2 Parameter by Method (Wolfe)', fontsize=14, fontweight='bold')
-            axes[1].grid(True, alpha=0.3, axis='y')
-            
-            # optimal alpha
-            axes[2].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
-            axes[2].set_xticks(x_pos)
-            axes[2].set_xticklabels(methods, rotation=45, ha='right')
-            axes[2].set_ylabel('Optimal Alpha', fontsize=12)
-            axes[2].set_title('Optimal Initial Alpha by Method (Wolfe)', fontsize=14, fontweight='bold')
-            axes[2].grid(True, alpha=0.3, axis='y')
-            
-            plt.tight_layout()
-            plot_path = plots_dir / "optimal_params_wolfe.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")
-    
-    # Optimal parameters plot for Armijo methods
-    armijo_methods = [m for m in converged_df['method'].unique() if 'armijo' in m.lower()]
-    
-    if len(armijo_methods) > 0:
-        # Get best parameters for each Armijo method
-        armijo_best_params = []
-        for method in armijo_methods:
-            method_df = converged_df[converged_df['method'] == method]
-            if len(method_df) > 0:
-                grouped = method_df.groupby(['c1', 'alpha'])['iterations'].mean()
-                best_idx = grouped.idxmin()
-                armijo_best_params.append({
-                    'method': method,
-                    'c1': best_idx[0],
-                    'alpha': best_idx[1]
-                })
-        
-        if len(armijo_best_params) > 0:
-            # Create figure with 2 subplots (vertically stacked)
-            fig, axes = plt.subplots(2, 1, figsize=(12, 8))
-            
-            methods = [p['method'] for p in armijo_best_params]
-            c1_values = [p['c1'] for p in armijo_best_params]
-            alpha_values = [p['alpha'] for p in armijo_best_params]
-            
-            x_pos = np.arange(len(methods))
-            
-            # optimal C1
-            axes[0].bar(x_pos, c1_values, color='skyblue', edgecolor='navy', linewidth=1.5)
-            axes[0].set_xticks(x_pos)
-            axes[0].set_xticklabels(methods, rotation=45, ha='right')
-            axes[0].set_ylabel('Optimal C1', fontsize=12)
-            axes[0].set_yscale('log')
-            axes[0].set_title('Optimal C1 Parameter by Method (Armijo)', fontsize=14, fontweight='bold')
-            axes[0].grid(True, alpha=0.3, axis='y')
-            
-            # alpha
-            axes[1].bar(x_pos, alpha_values, color='lightcoral', edgecolor='darkred', linewidth=1.5)
-            axes[1].set_xticks(x_pos)
-            axes[1].set_xticklabels(methods, rotation=45, ha='right')
-            axes[1].set_ylabel('Optimal Alpha', fontsize=12)
-            axes[1].set_title('Optimal Initial Alpha by Method (Armijo)', fontsize=14, fontweight='bold')
-            axes[1].grid(True, alpha=0.3, axis='y')
-            
-            plt.tight_layout()
-            plot_path = plots_dir / "optimal_params_armijo.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            print(f"   Saved: {plot_path.name}")
-    
-    print(f"\nAll plots saved to: {plots_dir}")
+    print(f"   Using Wolfe optimal: (c1, c2, alpha) from main search")
+    print(f"   Using Armijo optimal: (c1, alpha) from main search + tau from tau search")
 
 
 if __name__ == "__main__":
@@ -1372,8 +1595,11 @@ if __name__ == "__main__":
     print(f"Converged: {results_df['converged'].sum()}")
     print(f"Failed: {(~results_df['converged']).sum()}")
     
-    # Run separate tau search
-    tau_results_df = tau_search()
+    # Run separate tau search using optimal parameters from main search
+    tau_results_df = tau_search(results_df)
+    
+    # Generate final method comparison using optimal parameters from both searches
+    generate_final_method_comparison(results_df, tau_results_df, Path("parameter_search_results"))
     
     print("\n" + "="*80)
     print("ALL SEARCHES COMPLETE!")
