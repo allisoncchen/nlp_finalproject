@@ -15,6 +15,11 @@ TAO = 0.5
 BETA = 0.0004
 EMIN = 10e-8
 
+START_ALPHA = 1
+C1 = 0.0004
+C2 = 0.9
+TAO = 0.5
+K_MAX = 1000
 
 # ============================================================================
 # PARAMETERIZED LINE SEARCH FUNCTIONS
@@ -1039,28 +1044,434 @@ def generate_plots(df, output_dir):
     print(f"\nAll plots saved to: {plots_dir}")
 
 
+def compare_algorithms(): 
+    problems = [
+        {
+            "name": "P1_quad_10_10",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_10_func,
+            "grad": pr.quad_10_10_grad,
+            "hess": pr.quad_10_10_Hess,
+        },
+        {
+            "name": "P2_quad_10_1000",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_1000_func,
+            "grad": pr.quad_10_1000_grad,
+            "hess": pr.quad_10_1000_Hess,
+        },
+        {
+            "name": "P3_quad_1000_10", # I think this is causing problems 
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_10_func,
+            "grad": pr.quad_1000_10_grad,
+            "hess": pr.quad_1000_10_Hess,
+        },
+        {
+            "name": "P4_quad_1000_1000",
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_1000_func,
+            "grad": pr.quad_1000_1000_grad,
+            "hess": pr.quad_1000_1000_Hess,
+        },
+        {
+            "name": "P5_quartic_1",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_1_func,
+            "grad": pr.quartic_1_grad,
+            "hess": pr.quartic_1_Hess,
+        },
+        {
+            "name": "P6_quartic_2",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_2_func,
+            "grad": pr.quartic_2_grad,
+            "hess": pr.quartic_2_Hess,
+        },
+        {
+            "name": "P7_Extended_Rosenbrock_n2",
+            "n": 2,
+            "x0": np.array([-1.2, 1.0]),
+            "func": pr.ExtRF,
+            "grad": pr.grad_ExtRF,
+            "hess": pr.hess_ExtRF,
+        },
+        {
+            "name": "P8_Extended_Rosenbrock_n100",
+            "n": 100,
+            "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+            "func": pr.ExtRF_100,
+            "grad": pr.grad_ExtRF_100,
+            "hess": pr.hess_ExtRF_100,
+        },
+        {
+            "name": "P9_Beale",
+            "n": 2,
+            "x0": np.array([1.0, 1.0]),
+            "func": pr.Beale_function,
+            "grad": pr.Beale_gradient,
+            "hess": pr.Beale_hessian,
+        },
+        {
+            "name": "P10_exponential_10",
+            "n": 10,
+            "x0": np.concatenate(([1.0], np.zeros(9))),
+            "func": pr.exponential_10_func,
+            "grad": pr.exponential_10_grad,
+            "hess": pr.exponential_10_Hess,
+        },
+        {
+            "name": "P11_exponential_1000",
+            "n": 1000,
+            "x0": np.concatenate(([1.0], np.zeros(999))),
+            "func": pr.exponential_1000_func,
+            "grad": pr.exponential_1000_grad,
+            "hess": pr.exponential_1000_Hess,
+        },
+        {
+            "name": "P12_genhumps_5",
+            "n": 5,
+            "x0": np.full(5, -506.2),
+            "func": pr.genhumps_5_func,
+            "grad": pr.genhumps_5_grad,
+            "hess": pr.genhumps_5_Hess,
+        },
+    ]
+
+     # Define methods
+    methods = [
+        ("SD_armijo", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
+        ("SD_wolfe", lambda p, c1, c2, alpha: steepest_descent_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
+        ("Newton_armijo", lambda p, c1, c2, alpha: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
+        ("Newton_wolfe", lambda p, c1, c2, alpha: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
+        ("Modified_Newton_armijo", lambda p, c1, c2, alpha: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
+        ("Modified_Newton_wolfe", lambda p, c1, c2, alpha: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
+        ("BFGS_armijo", lambda p, c1, c2, alpha: BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
+        ("BFGS_wolfe", lambda p, c1, c2, alpha: BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
+        ("DFP_armijo", lambda p, c1, c2, alpha: DFP_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
+        ("DFP_wolfe", lambda p, c1, c2, alpha: DFP_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
+        ("L_BFGS_armijo", lambda p, c1, c2, alpha: L_BFGS_param(p["x0"], p["func"], p["grad"], True, c1, c2, alpha)),
+        ("L_BFGS_wolfe", lambda p, c1, c2, alpha: L_BFGS_param(p["x0"], p["func"], p["grad"], False, c1, c2, alpha)),
+        ("Newton_CG_armijo", lambda p, c1, c2, alpha: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, c1, c2, alpha)),
+        ("Newton_CG_wolfe", lambda p, c1, c2, alpha: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], False, c1, c2, alpha)),
+    ]
+    
+
+    # for i, problem in enumerate(problems, 1):
+    for method_name, method_func in methods:
+        results = {}
+        print(f"ALGO NAME: {method_name}")
+
+        # for method_name, method_func in methods:
+        for i, problem in enumerate(problems, 1):
+            x0 = problem["x0"] # initial va; 
+            n = len(x0)
+            n = problem["n"]
+
+            start_time = time.time()
+            f_final, iters, gradient_norm, armijo, total_func_evals = method_func(problem)
+            elapsed_time = time.time() - start_time
+
+            results[problem['name']] = ({
+                "Problem": f"P{i} ({problem['name']})",
+                "Method": method_name,
+                "f_final" : f_final,
+                "Iterations": iters, 
+                "Gradient_Norm": gradient_norm,
+                "Time": elapsed_time,
+                "Armijo": armijo, 
+            })
+
+       
+        fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(20, 15))
+
+        all_problems = [problem['name'] for i, problem in enumerate(problems, 1)]
+        iterations = [results[problem]['Iterations'] for problem in all_problems]
+        axes[0].set_title(f"{method_name} Problem vs. Iterations")
+        axes[0].set_xlabel("Problem")
+        axes[0].set_xticks(np.arange(0, len(all_problems)))
+        axes[0].set_xticklabels(all_problems, rotation=90)
+        axes[0].set_ylabel("Iterations")
+        axes[0].scatter(all_problems, iterations)
+
+    
+        gradient_norms = [results[problem]['Gradient_Norm'] for problem in all_problems]
+        axes[1].set_title(f"{method_name} Norm of Gradient vs. Iterations")
+        axes[1].set_xlabel("Norm of Gradient")
+        axes[1].set_xticks(np.arange(0, len(all_problems)))
+        # axes[1].set_xticklabels(gradient_norms, rotation=90)
+        axes[1].set_ylabel("Iterations")
+        axes[1].set_xticklabels(gradient_norms, rotation=90) 
+        axes[1].scatter(np.arange(0, len(all_problems)), iterations) 
+        plt.tight_layout() # to prevent plots from overlapping 
+        plt.savefig(f"{method_name}.png")
+
+
+
+TRIAL_TIMEOUT = 120 # 2 minutes 
+import signal 
+# Timeout handling for long-running trials
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException("Trial exceeded time limit")
+
+def run_with_timeout(func, timeout_seconds=TRIAL_TIMEOUT):
+    """
+    Run a function with a timeout. If it takes longer than timeout_seconds,
+    raise TimeoutException and allow the script to continue.
+    """
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout_seconds)
+    try:
+        result = func()
+        signal.alarm(0)  # Cancel alarm if completed
+        return result, False  # result, timed_out
+    except TimeoutException:
+        signal.alarm(0)  # Cancel alarm
+        return None, True  # None, timed_out
+
+def compare_algorithms_csv(): 
+    problems = [
+        {
+            "name": "P1_quad_10_10",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_10_func,
+            "grad": pr.quad_10_10_grad,
+            "hess": pr.quad_10_10_Hess,
+        },
+        {
+            "name": "P2_quad_10_1000",
+            "n": 10,
+            "x0": 20 * np.random.rand(10) - 10,
+            "func": pr.quad_10_1000_func,
+            "grad": pr.quad_10_1000_grad,
+            "hess": pr.quad_10_1000_Hess,
+        },
+        {
+            "name": "P3_quad_1000_10", # I think this is causing problems 
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_10_func,
+            "grad": pr.quad_1000_10_grad,
+            "hess": pr.quad_1000_10_Hess,
+        },
+        {
+            "name": "P4_quad_1000_1000",
+            "n": 1000,
+            "x0": 20 * np.random.rand(1000) - 10,
+            "func": pr.quad_1000_1000_func,
+            "grad": pr.quad_1000_1000_grad,
+            "hess": pr.quad_1000_1000_Hess,
+        },
+        {
+            "name": "P5_quartic_1",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_1_func,
+            "grad": pr.quartic_1_grad,
+            "hess": pr.quartic_1_Hess,
+        },
+        {
+            "name": "P6_quartic_2",
+            "n": 4,
+            "x0": np.array([np.cos(70), np.sin(70), np.cos(70), np.sin(70)]),
+            "func": pr.quartic_2_func,
+            "grad": pr.quartic_2_grad,
+            "hess": pr.quartic_2_Hess,
+        },
+        {
+            "name": "P7_Extended_Rosenbrock_n2",
+            "n": 2,
+            "x0": np.array([-1.2, 1.0]),
+            "func": pr.ExtRF,
+            "grad": pr.grad_ExtRF,
+            "hess": pr.hess_ExtRF,
+        },
+        {
+            "name": "P8_Extended_Rosenbrock_n100",
+            "n": 100,
+            "x0": np.concatenate(([ -1.2 ], np.ones(99))),
+            "func": pr.ExtRF_100,
+            "grad": pr.grad_ExtRF_100,
+            "hess": pr.hess_ExtRF_100,
+        },
+        {
+            "name": "P9_Beale",
+            "n": 2,
+            "x0": np.array([1.0, 1.0]),
+            "func": pr.Beale_function,
+            "grad": pr.Beale_gradient,
+            "hess": pr.Beale_hessian,
+        },
+        {
+            "name": "P10_exponential_10",
+            "n": 10,
+            "x0": np.concatenate(([1.0], np.zeros(9))),
+            "func": pr.exponential_10_func,
+            "grad": pr.exponential_10_grad,
+            "hess": pr.exponential_10_Hess,
+        },
+        {
+            "name": "P11_exponential_1000",
+            "n": 1000,
+            "x0": np.concatenate(([1.0], np.zeros(999))),
+            "func": pr.exponential_1000_func,
+            "grad": pr.exponential_1000_grad,
+            "hess": pr.exponential_1000_Hess,
+        },
+        {
+            "name": "P12_genhumps_5",
+            "n": 5,
+            "x0": np.full(5, -506.2),
+            "func": pr.genhumps_5_func,
+            "grad": pr.genhumps_5_grad,
+            "hess": pr.genhumps_5_Hess,
+        },
+    ]
+
+     # Define methods
+    methods = [
+        ("SD_armijo", lambda p: steepest_descent_param(p["x0"], p["func"], p["grad"], True, C1, C2, START_ALPHA)),
+        ("SD_wolfe", lambda p: steepest_descent_param(p["x0"], p["func"], p["grad"], False, C1, C2, START_ALPHA)),
+        ("Newton_armijo", lambda p: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, C1, C2, START_ALPHA)),
+        ("Newton_wolfe", lambda p: newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, C1, C2, START_ALPHA)),
+        ("Modified_Newton_armijo", lambda p: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], True, C1, C2, START_ALPHA)),
+        ("Modified_Newton_wolfe", lambda p: modified_newtons_method_param(p["x0"], p["func"], p["grad"], p["hess"], False, C1, C2, START_ALPHA)),
+        ("BFGS_armijo", lambda p: BFGS_param(p["x0"], p["func"], p["grad"], True, C1, C2, START_ALPHA)),
+        ("BFGS_wolfe", lambda p: BFGS_param(p["x0"], p["func"], p["grad"], False, C1, C2, START_ALPHA)),
+        ("DFP_armijo", lambda p: DFP_param(p["x0"], p["func"], p["grad"], True, C1, C2, START_ALPHA)),
+        ("DFP_wolfe", lambda p: DFP_param(p["x0"], p["func"], p["grad"], False, C1, C2, START_ALPHA)),
+        ("L_BFGS_armijo", lambda p: L_BFGS_param(p["x0"], p["func"], p["grad"], True, C1, C2, START_ALPHA)),
+        ("L_BFGS_wolfe", lambda p: L_BFGS_param(p["x0"], p["func"], p["grad"], False, C1, C2, START_ALPHA)),
+        ("Newton_CG_armijo", lambda p: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], True, C1, C2, START_ALPHA)),
+        ("Newton_CG_wolfe", lambda p: Newton_CG_param(p["x0"], p["func"], p["grad"], p["hess"], False, C1, C2, START_ALPHA)),
+    ]
+    
+
+    # for i, problem in enumerate(problems, 1):
+    all_results = []
+    for method_name, method_func in methods:
+        
+        print(f"ALGO NAME: {method_name}")
+        is_armijo = "armijo" in method_name.lower()
+
+        # for method_name, method_func in methods:
+        for i, problem in enumerate(problems, 1):
+            x0 = problem["x0"] # initial va; 
+            n = len(x0)
+            n = problem["n"]
+
+            try:
+                # Run the optimization with timeout
+                start_time = time.time()
+                
+                # Wrap the method call in timeout
+                result_data, timed_out = run_with_timeout(
+                    lambda: method_func(problem),
+                    timeout_seconds=TRIAL_TIMEOUT
+                )
+
+                elapsed_time = time.time() - start_time 
+
+                if timed_out:
+                    print(f"TIMEOUT ({TRIAL_TIMEOUT}s) - marked as failed")
+                    result = {
+                        'problem': problem['name'],
+                        'method': method_name,
+                        'iterations': K_MAX,
+                        'converged': False,
+                        'f_final': None,
+                        'grad_norm': None,
+                        'func_evals': None,
+                        'time': elapsed_time,
+                        'linesearch': 'Armijo' if is_armijo else 'Wolfe',
+                        'timeout': True
+                    }
+                else:
+                    f_final, iters, grad_norm, converged, func_evals = result_data
+                    
+                    # Store results
+                    result = {
+                        'problem': problem['name'],
+                        'method': method_name,
+                        'iterations': iters,
+                        'converged': converged,
+                        'f_final': f_final,
+                        'grad_norm': grad_norm,
+                        'func_evals': func_evals,
+                        'time': elapsed_time,
+                        'linesearch': 'Armijo' if is_armijo else 'Wolfe',
+                        'timeout': False
+                    }
+                
+                    status = "Converged" if converged else "Failed"
+                    print(f"{status} in {iters} iters, {elapsed_time:.2f}s")
+            
+                    all_results.append(result)
+            
+            except Exception as e:
+                print(f"✗ Error: {str(e)}")
+                result = {
+                    'problem': problem['name'],
+                    'method': method_name,
+                    'iterations': K_MAX,
+                    'converged': False,
+                    'f_final': None,
+                    'grad_norm': None,
+                    'func_evals': None,
+                    'time': None,
+                    'linesearch': 'Armijo' if is_armijo else 'Wolfe',
+                    'error': str(e)
+                }
+                all_results.append(result)
+        
+    # Convert to DataFrame
+    df = pd.DataFrame(all_results)
+    
+    # Save complete results to CSV
+    csv_path = f"full_table.csv"
+    df.to_csv(csv_path, index=False)
+    print(f"\n\n{'='*80}")
+    print(f"Results saved to: {csv_path}")
+    print(f"{'='*80}")
+    
+    return df 
+    
+
+
+
 if __name__ == "__main__":
-    print("="*80)
-    print("PARAMETER SEARCH FOR OPTIMIZATION METHODS")
-    print("="*80)
-    print("\nThis script will test different values of c1, c2, and alpha")
-    print("across all optimization methods and problems.")
-    print("\nNote: You can comment out problems/methods in the code to run smaller subsets.")
-    print("="*80)
+    compare_algorithms_csv()
+    # print("="*80)
+    # print("PARAMETER SEARCH FOR OPTIMIZATION METHODS")
+    # print("="*80)
+    # print("\nThis script will test different values of c1, c2, and alpha")
+    # print("across all optimization methods and problems.")
+    # print("\nNote: You can comment out problems/methods in the code to run smaller subsets.")
+    # print("="*80)
     
-    input("\nPress Enter to start the parameter search...")
+    # input("\nPress Enter to start the parameter search...")
     
-    results_df = parameter_search()
+    # results_df = parameter_search()
     
-    print("\n" + "="*80)
-    print("PARAMETER SEARCH COMPLETE!")
-    print("="*80)
-    print(f"\nTotal runs: {len(results_df)}")
-    print(f"Converged: {results_df['converged'].sum()}")
-    print(f"Failed: {(~results_df['converged']).sum()}")
-    print("\nCheck the 'parameter_search_results' directory for:")
-    print("  - all_results.csv: Complete results table")
-    print("  - best_parameters.csv: Best parameters for each method")
-    print("  - method_summary.csv: Success rates by method")
-    print("  - plots/: All visualization plots")
-    print("="*80)
+    # print("\n" + "="*80)
+    # print("PARAMETER SEARCH COMPLETE!")
+    # print("="*80)
+    # print(f"\nTotal runs: {len(results_df)}")
+    # print(f"Converged: {results_df['converged'].sum()}")
+    # print(f"Failed: {(~results_df['converged']).sum()}")
+    # print("\nCheck the 'parameter_search_results' directory for:")
+    # print("  - all_results.csv: Complete results table")
+    # print("  - best_parameters.csv: Best parameters for each method")
+    # print("  - method_summary.csv: Success rates by method")
+    # print("  - plots/: All visualization plots")
+    # print("="*80)
