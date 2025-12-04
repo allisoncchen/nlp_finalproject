@@ -1,0 +1,14 @@
+method,c1,c2,alpha,tau,optimal_iterations,source
+SD_wolfe,0.05,0.3,0.7,,131.0,main
+Newton_armijo,0.05,,1.0,0.8,19.0,main+tau
+Newton_wolfe,0.0001,0.4,1.0,,17.0,main
+Modified_Newton_armijo,0.05,,2.0,0.5,17.0,main+tau
+Modified_Newton_wolfe,0.1,0.2,2.0,,15.0,main
+BFGS_armijo,0.2,,2.0,0.5,30.0,main+tau
+BFGS_wolfe,0.0001,0.4,0.1,,21.0,main
+DFP_armijo,0.5,,1.9,0.7,30.0,main+tau
+DFP_wolfe,0.0001,0.3,0.3,,30.0,main
+L_BFGS_armijo,0.1,,2.0,0.5,31.0,main+tau
+L_BFGS_wolfe,0.0001,0.3,0.1,,24.0,main
+Newton_CG_armijo,0.5,,2.0,0.5,20.0,main+tau
+Newton_CG_wolfe,0.05,0.1,0.5,,18.0,main

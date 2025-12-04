@@ -840,7 +840,7 @@ def tau_search(main_results_df):
                     elapsed_time = time.time() - start_time
                     
                     if timed_out:
-                        print(f"⏱ TIMEOUT ({TRIAL_TIMEOUT}s) - marked as failed")
+                        print(f"TIMEOUT ({TRIAL_TIMEOUT}s) - marked as failed")
                         result = {
                             'problem': problem['name'],
                             'method': method_name,
@@ -1015,62 +1015,8 @@ def generate_summary_statistics(df, output_dir):
     method_success.to_csv(method_summary_path)
     print(f"\nMethod summary saved to: {method_summary_path}")
     
-    # Best parameters for each method (based on average iterations for converged runs)
-    print("\n" + "="*80)
-    print("BEST PARAMETERS BY METHOD (minimum average iterations)")
-    print("="*80)
-    
-    converged_df = df[df['converged'] == True]
-    
-    best_params = []
-    for method in df['method'].unique():
-        method_df = converged_df[converged_df['method'] == method]
-        
-        if len(method_df) > 0:
-            if 'armijo' in method.lower():
-                # For Armijo, group by c1 and alpha
-                grouped = method_df.groupby(['c1', 'alpha'])['iterations'].agg(['mean', 'count'])
-                if len(grouped) > 0:
-                    best_idx = grouped['mean'].idxmin()
-                    best_c1, best_alpha = best_idx
-                    best_iters = grouped.loc[best_idx, 'mean']
-                    best_count = grouped.loc[best_idx, 'count']
-                    
-                    best_params.append({
-                        'method': method,
-                        'c1': best_c1,
-                        'c2': None,
-                        'alpha': best_alpha,
-                        'tau': TAU,
-                        'avg_iterations': best_iters,
-                        'num_converged': best_count
-                    })
-            else:
-                # For Wolfe, group by c1, c2, and alpha
-                grouped = method_df.groupby(['c1', 'c2', 'alpha'])['iterations'].agg(['mean', 'count'])
-                if len(grouped) > 0:
-                    best_idx = grouped['mean'].idxmin()
-                    best_c1, best_c2, best_alpha = best_idx
-                    best_iters = grouped.loc[best_idx, 'mean']
-                    best_count = grouped.loc[best_idx, 'count']
-                    
-                    best_params.append({
-                        'method': method,
-                        'c1': best_c1,
-                        'c2': best_c2,
-                        'alpha': best_alpha,
-                        'tau': None,
-                        'avg_iterations': best_iters,
-                        'num_converged': best_count
-                    })
-    
-    best_params_df = pd.DataFrame(best_params)
-    print("\n" + best_params_df.to_string(index=False))
-    
-    # Save best parameters
-    best_params_path = output_dir / "best_parameters.csv"
-    best_params_df.to_csv(best_params_path, index=False)
-    print(f"\nBest parameters saved to: {best_params_path}")
+    # Note: best_parameters CSVs are now generated after both searches complete
+    # See generate_best_parameters_csvs() function
 
 
 def generate_plots(df, output_dir):
@@ -1579,6 +1525,147 @@ def generate_final_method_comparison(main_results_df, tau_results_df, output_dir
     print(f"   Using Armijo optimal: (c1, alpha) from main search + tau from tau search")
 
 
+def generate_best_parameters_csvs(main_results_df, tau_results_df, output_dir):
+    """
+    Generate best_parameters CSVs for each problem, including optimal tau from tau search.
+    Creates two files:
+    - best_parameters_rosenbrock_n2.csv
+    - best_parameters_rosenbrock_n100.csv
+    """
+    
+    print("\n" + "="*80)
+    print("GENERATING BEST PARAMETERS CSVs")
+    print("="*80)
+    print("Combining optimal parameters from main search and tau search")
+    
+    # Filter to converged runs
+    converged_main = main_results_df[main_results_df['converged'] == True].copy()
+    converged_tau = tau_results_df[tau_results_df['converged'] == True].copy()
+    
+    problems = sorted(converged_main['problem'].unique())
+    
+    for problem in problems:
+        print(f"\n  Processing: {problem}")
+        
+        problem_main = converged_main[converged_main['problem'] == problem]
+        problem_tau = converged_tau[converged_tau['problem'] == problem]
+        
+        best_params = []
+        
+        # Get all methods for this problem
+        all_methods = problem_main['method'].unique()
+        
+        for method in all_methods:
+            if 'armijo' in method.lower():
+                # For Armijo: Get best (c1, alpha) from main search
+                method_main = problem_main[problem_main['method'] == method]
+                
+                if len(method_main) > 0:
+                    grouped_main = method_main.groupby(['c1', 'alpha'])['iterations'].mean()
+                    best_idx = grouped_main.idxmin()  # If ties, picks first occurrence
+                    best_c1, best_alpha = best_idx
+                    best_iters_main = grouped_main.min()
+                    
+                    # Get best tau from tau search (using same c1, alpha)
+                    method_tau = problem_tau[problem_tau['method'] == method]
+                    
+                    if len(method_tau) > 0:
+                        # Find tau that gives minimum iterations
+                        # Tiebreaker: min func_evals, then max tau
+                        grouped_tau = method_tau.groupby('tau').agg({
+                            'iterations': 'mean',
+                            'func_evals': 'mean'
+                        })
+                        
+                        min_iters = grouped_tau['iterations'].min()
+                        
+                        # Get all tau values that achieve minimum iterations
+                        tied_on_iters = grouped_tau[grouped_tau['iterations'] == min_iters]
+                        
+                        if len(tied_on_iters) > 1:
+                            # Multiple tau values tied on iterations
+                            # Break tie with func_evals (prefer fewer)
+                            min_func_evals = tied_on_iters['func_evals'].min()
+                            tied_on_both = tied_on_iters[tied_on_iters['func_evals'] == min_func_evals]
+                            
+                            if len(tied_on_both) > 1:
+                                # Still tied after func_evals, pick largest tau (most efficient)
+                                best_tau = tied_on_both.index.max()
+                            else:
+                                # Single winner after func_evals tiebreaker
+                                best_tau = tied_on_both.index[0]
+                        else:
+                            # Single winner, no tie
+                            best_tau = tied_on_iters.index[0]
+                        
+                        best_iters_tau = min_iters
+                        
+                        best_params.append({
+                            'method': method,
+                            'c1': best_c1,
+                            'c2': None,
+                            'alpha': best_alpha,
+                            'tau': best_tau,
+                            'optimal_iterations': best_iters_tau,
+                            'source': 'main+tau'
+                        })
+                        print(f"    {method}: c1={best_c1:.4f}, alpha={best_alpha:.2f}, tau={best_tau:.1f}, iters={best_iters_tau:.1f}")
+                    else:
+                        # Tau search didn't converge, use main search with default tau
+                        best_params.append({
+                            'method': method,
+                            'c1': best_c1,
+                            'c2': None,
+                            'alpha': best_alpha,
+                            'tau': TAU,
+                            'optimal_iterations': best_iters_main,
+                            'source': 'main_only'
+                        })
+                        print(f"    {method}: c1={best_c1:.4f}, alpha={best_alpha:.2f}, tau={TAU} (default), iters={best_iters_main:.1f}")
+            else:
+                # For Wolfe: Get best (c1, c2, alpha) from main search
+                method_main = problem_main[problem_main['method'] == method]
+                
+                if len(method_main) > 0:
+                    grouped = method_main.groupby(['c1', 'c2', 'alpha'])['iterations'].mean()
+                    best_idx = grouped.idxmin()  # If ties, picks first occurrence
+                    best_c1, best_c2, best_alpha = best_idx
+                    best_iters = grouped.min()
+                    
+                    best_params.append({
+                        'method': method,
+                        'c1': best_c1,
+                        'c2': best_c2,
+                        'alpha': best_alpha,
+                        'tau': None,
+                        'optimal_iterations': best_iters,
+                        'source': 'main'
+                    })
+                    print(f"    {method}: c1={best_c1:.4f}, c2={best_c2:.2f}, alpha={best_alpha:.2f}, iters={best_iters:.1f}")
+        
+        # Create DataFrame and save
+        if len(best_params) > 0:
+            best_params_df = pd.DataFrame(best_params)
+            
+            # Create filename
+            if 'n2' in problem.lower():
+                filename = "best_parameters_rosenbrock_n2.csv"
+            elif 'n100' in problem.lower():
+                filename = "best_parameters_rosenbrock_n100.csv"
+            else:
+                # Fallback to safe filename
+                problem_clean = problem.replace('_', '').replace(' ', '').lower()
+                filename = f"best_parameters_{problem_clean}.csv"
+            
+            csv_path = output_dir / filename
+            best_params_df.to_csv(csv_path, index=False)
+            print(f"\n  Saved: {csv_path}")
+    
+    print("\n" + "="*80)
+    print("BEST PARAMETERS CSVs GENERATION COMPLETE")
+    print("="*80)
+
+
 if __name__ == "__main__":
 
     # Run main parameter search (c1, c2, alpha with fixed tau)
@@ -1601,13 +1688,17 @@ if __name__ == "__main__":
     # Generate final method comparison using optimal parameters from both searches
     generate_final_method_comparison(results_df, tau_results_df, Path("parameter_search_results"))
     
+    # Generate best parameters CSVs (one per problem, including optimal tau)
+    generate_best_parameters_csvs(results_df, tau_results_df, Path("parameter_search_results"))
+    
     print("\n" + "="*80)
     print("ALL SEARCHES COMPLETE!")
     print("="*80)
     print("\nCheck the 'parameter_search_results' directory for:")
     print("all_results.csv: Complete results table")
     print("tau_search_results.csv: Tau-specific search results")
-    print("best_parameters.csv: Best parameters for each method")
+    print("best_parameters_rosenbrock_n2.csv: Best parameters for each method (n=2)")
+    print("best_parameters_rosenbrock_n100.csv: Best parameters for each method (n=100)")
     print("method_summary.csv: Success rates by method")
     print("plots/: All visualization plots")
     print("="*80)
