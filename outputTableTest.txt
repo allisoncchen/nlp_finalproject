@@ -1,8 +1,0 @@
-Problem	Method	Final f	Iteration	Time (s)
-P1 (P1_quad_10_10)	SD_armijo	-4.77e+01	50	0.28
-P1 (P1_quad_10_10)	Newton_armijo	-4.77e+01	1	0.01
-P1 (P1_quad_10_10)	Modified_Newtons_armijo	-4.77e+01	1	0.01
-P1 (P1_quad_10_10)	BFGS_armijo	-4.77e+01	22	0.14
-P1 (P1_quad_10_10)	DFP_armijo	-4.77e+01	30	0.14
-P1 (P1_quad_10_10)	L_BFGS_armijo	-4.77e+01	16	0.06
-P1 (P1_quad_10_10)	Newton_CG_armijo	-4.77e+01	4	0.10
