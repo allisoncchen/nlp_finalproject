@@ -1,11 +1,11 @@
 import numpy as np 
 import sys
 import time 
-import functions 
+import scripts.functions as functions 
 import argparse
 # import matlab.engine # using matlab engine api in python 
 import numpy as np
-import problems as pr
+import scripts.problems as pr
 import matplotlib.pyplot as plt
 
 START_ALPHA = 1
@@ -645,7 +645,7 @@ def main():
 
     print("Running script to run problems for the NLP final project...\n")
 
-    print(f"[0]: SD\n[1]: Newton\n[2]: Modified_Newton\n[3]: Modified Newton\n[4]: BFGS\n[5]: DFP\n[6]: L_BFGS\n[7]: Newton_CG")
+    print(f"[0]: SD\n[1]: Newton\n[2]: Modified_Newton\n[3]: BFGS\n[4]: DFP\n[5]: L_BFGS\n[6]: Newton_CG")
     method_name = input("Input the algorithm # you wish to use (0-7):")
     method_name = int(method_name) if method_name is not None else 0
     method_name = method_names[method_name]
@@ -656,7 +656,7 @@ def main():
     problem_name_array = [] 
     for i, problem in enumerate(problems, 1):
         problem_name_array.append(problem['name'])
-        print(f"[{i}]: {problem['name']}")
+        print(f"[{i-1}]: {problem['name']}")
 
     problem_name = input("\nInput the problem name you wish to run (0-12):")
     problem_name = problem_name_array[int(problem_name)] if problem_name is not None else problem_name_array[0]
@@ -717,8 +717,6 @@ def main():
         if p['name'] == problem_name: 
             problem = p
     
-    print(f"METHOD NAME {method_name}")
-
     print("\n\nBeginning to run problem...")
 
     start_time = time.time()
