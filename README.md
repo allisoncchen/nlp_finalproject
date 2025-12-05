@@ -1,4 +1,4 @@
-# Project Title
+# ORI 391/CSE 393 Final Project 
 
 This is the code package for the Final Project Submission to ORI 391/CSE 393 created by 
 Parul Singh and Allison Chen.
